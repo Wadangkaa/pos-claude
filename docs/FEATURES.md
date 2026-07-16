@@ -22,7 +22,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   ⚠️ See CLAUDE.md: Product is the child/sellable; ProductVariant is the parent group.
 - **Product Variants ("product groups")** — parent grouping of sibling products by
   article number (SKU prefix). Creating/editing a variant bulk-creates its child
-  products. Has status (`ProductVariantStatusEnum`), images, tags, attributes.
+  products; updating also syncs name/sell_price of existing child products
+  (matched by SKU, only within the same variant). Has status
+  (`ProductVariantStatusEnum`), images, tags, attributes.
 - **Attributes** — key/value characteristics (Size, Color…) attachable to both
   products and variants; attribute-name management page.
 - **Tags** — labels on products/variants/categories; used for website filtering and
