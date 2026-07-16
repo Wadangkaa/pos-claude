@@ -59,7 +59,9 @@ Orders from both channels land in the same `orders` table, distinguished by
 - **Discount engine** — `Discount` with types PERCENTAGE / FIXED / FIXED_PRICE,
   time-windowed (`starts_at`/`ends_at`), active toggle, per-product override value,
   polymorphic `discountables`, bulk attach/detach and Excel import of discounted /
-  fixed-price product lists. Product exposes computed `discount_details`.
+  fixed-price product lists (percentage/fixed import needs SKU column only;
+  fixed-price import needs SKU + final price). Product exposes computed
+  `discount_details`.
 - **Customers** — CRM basics, linked to orders.
 - **Footfall / customer returns** — records gender + reason of walk-outs (analytics,
   not product returns). Route `/footfall`.
