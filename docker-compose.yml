@@ -3,6 +3,7 @@ services:
     build:
       context: ./pos-backend
       dockerfile: Dockerfile
+    image: pos-backend
     command: php artisan serve --host=0.0.0.0 --port=8000
     ports:
       - "8000:8000"
@@ -11,6 +12,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  queue:
+    image: pos-backend
+    command: php artisan queue:work --tries=3 --timeout=90
+    restart: unless-stopped
+    volumes:
+      - ./pos-backend:/var/www
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
   frontend:
     build:
       context: ./pos-frontend

@@ -1,0 +1,9 @@
+info:
+  name: central
+  type: folder
+  seq: 1
+
+request:
+  auth:
+    type: bearer
+    token: "{{token}}"
