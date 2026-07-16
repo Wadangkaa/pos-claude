@@ -81,7 +81,8 @@ Customer, Order, OrderItems, Payment, Purchase, Productable, StockAdjustment,
 InventoryStockTransaction, StockAudit(+Item/Result/Summary), SalesReturn,
 SaleReturnItem, Cart, CartItem, CashSession, CashDenomination, Discount, Expense,
 Image, Setting, Feature, Import, Exports, CustomerReturns (footfall), ActivityLog,
-Role, User, Tenant.
+Role, User, Tenant, Location (self-referencing 3-level hierarchy via `parent_id`,
+type = LocationTypeEnum), DeliveryFee (per-city fee, `location_id` FK).
 
 ### Services (app/Services)
 - `Orders/CreateOrder` — order creation pipeline (stock deduction, payments).
@@ -98,7 +99,8 @@ StockUpdateTypeEnum (In/Out), StockUpdateReasonEnum, StockAuditEnum,
 CartStatusEnum, CashSessionStatus, CashDenominationStage, BrandStatusEnum,
 CategoryStatusEnum, ProductVariantStatusEnum, Sales/SaleReturnStatusEnum,
 ImportStatusEnum, ExportModelMap, FeatureKey (website_enabled/maintenance_mode),
-RoleEnum, PermissionEnum.
+RoleEnum, PermissionEnum, LocationTypeEnum (country/district/city, with
+`parentType()` helper).
 
 ### Migrations
 - Central: `database/migrations/` (tenants, domains, users, tokens, features).
@@ -108,7 +110,8 @@ RoleEnum, PermissionEnum.
 brands, categories (+categories_tags), sales_returns + sale_return_items,
 carts + cart_items, images (polymorphic, thumbnail/order), cash_sessions,
 cash_denominations, expenses, stock_audits (+items/results/summaries),
-discounts + discountables, features (central); plus columns: orders.type,
+discounts + discountables, features (central), locations + delivery_fees
+(Jul 2026); plus columns: orders.type,
 orders.split_payments, orders.total_discount_amount, products.brand_id,
 product_variants.status/image, customers login capability (customer_loginable).
 
@@ -144,7 +147,7 @@ hosts. Env: `VITE_DEFAULT_TENANT`.
 `/damage-products` (inventory) · `/cash-denominations` `/currency-config`
 `/note-config` `/expenses` (cash) · `/discount` `/categories` `/brands` `/tags`
 `/attributes` `/attribute-names` (catalog meta) · `/customers` `/suppliers`
-`/stores` `/users` `/roles` (parties) · `/sales-report` `/products-report`
+`/stores` `/users` `/roles` (parties) · `/locations` `/delivery-fees` (shipping) · `/sales-report` `/products-report`
 (reports) · `/pos-config` `/website-config` `/inventory-configs`
 `/payment-methods` `/system-logs` `/footfall` (admin).
 

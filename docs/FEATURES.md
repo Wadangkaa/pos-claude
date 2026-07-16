@@ -29,6 +29,13 @@ Orders from both channels land in the same `orders` table, distinguished by
   "most tag" reporting.
 - **Categories** — with tag assignment (`categories_tags`); drives website navbar.
 - **Brands** — with status; linked from products.
+- **Locations** — 3-level hierarchy (country → district → city) in a single
+  self-referencing `locations` table; parent type enforced by validation.
+  Excel import (headers: `name`, `type`, `parent`); one file can hold all
+  levels since the parent is resolved row-by-row at store time.
+- **Delivery Fees** — per-city delivery charge (`delivery_fees`, one fee per
+  city, FK to `locations`); managed at `/delivery-fees`. Excel import
+  (headers: `city`, `fee`).
 - **Product import/export** — Excel import (products, price updates, orders,
   purchases; failed-row download via signed URL), Excel export per module.
 
