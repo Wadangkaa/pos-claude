@@ -74,6 +74,8 @@ Orders from both channels land in the same `orders` table, distinguished by
 - **Cart** — add/remove/update-quantity/clear, then **checkout** → creates a website
   order (`Cart`, `CartItem`, `CartStatusEnum`, `Services/Websites/CartService`).
 - **Customer order history** — `/api/orders` for the logged-in customer.
+- Cart items and order items show the product's own thumbnail/first image, falling
+  back to its product group's images (`Product::displayThumbnail()`).
 - **Website order management (POS side)** — pending-website-orders list for staff,
   website order details, confirm flow (website orders arrive Pending, staff confirm).
 - **Website settings / feature flag** — website can be enabled/disabled per tenant
