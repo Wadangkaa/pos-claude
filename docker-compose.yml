@@ -14,7 +14,7 @@ services:
         condition: service_healthy
   queue:
     image: pos-backend
-    command: php artisan queue:work --tries=3 --timeout=90
+    command: php artisan queue:work --tries=1 --timeout=600
     restart: unless-stopped
     volumes:
       - ./pos-backend:/var/www

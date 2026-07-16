@@ -6,7 +6,7 @@ Two projects live in this workspace:
 | Directory | What it is |
 |---|---|
 | `pos-backend/` | Laravel 11 API (PHP 8.3, MySQL, Sanctum, stancl/tenancy). Serves both the POS admin API and the public website API. Has its own `CLAUDE.md` with Laravel Boost coding rules — follow it when working there. |
-| `pos-frontend-with-react/` | React 18 + Vite SPA (mixed TS/JSX). Contains BOTH the POS admin app and the customer-facing website (under `src/pages/website/`). |
+| `pos-frontend/` | React 18 + Vite SPA (mixed TS/JSX). Contains BOTH the POS admin app and the customer-facing website (under `src/pages/website/`). |
 
 ## ⚠️ CRITICAL: Product / Variant model is INVERTED vs. typical e-commerce
 
@@ -68,7 +68,7 @@ php artisan migrate               # central migrations
 php artisan tenants:migrate       # tenant migrations (database/migrations/tenant/)
 ```
 
-Frontend (run in `pos-frontend-with-react/`):
+Frontend (run in `pos-frontend/`):
 ```bash
 npm run dev                       # Vite dev server
 npm run build                     # tsc -b && vite build

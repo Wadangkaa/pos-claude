@@ -42,7 +42,12 @@ Orders from both channels land in the same `orders` table, distinguished by
   order (`orders.location_id`, `orders.delivery_fee`; fee included in
   `total_amount` and payment).
 - **Product import/export** — Excel import (products, price updates, orders,
-  purchases; failed-row download via signed URL), Excel export per module.
+  purchases; failed-row download via signed URL). Excel export per module runs
+  as a **queued background job** (`ExportJob`): `POST /api/export/{uri}` creates
+  an `exports` row (pending/processing/completed/failed) and returns
+  immediately; the file is written to tenant storage and downloaded from the
+  **Exports page** (`/exports`, `GET /api/exports`), which polls while a job is
+  active. Optional from/to date range; no dates = full table.
 
 ## 2. Sales (POS)
 
@@ -131,7 +136,8 @@ Orders from both channels land in the same `orders` table, distinguished by
 - **Settings** — POS config, website details, email config, payment methods,
   generic settings CRUD.
 - **Imports/exports tracking** — `imports`/`exports` tables with statistics and
-  status (`ImportStatusEnum`).
+  status (`ImportStatusEnum`, `ExportStatusEnum`); exports listed per-user on
+  the Exports page.
 - **Feature flags** — `features` table (central), `website_enabled`, `maintenance_mode`.
 
 ---

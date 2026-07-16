@@ -7,8 +7,8 @@
 
 ```
                          ┌──────────────────────────────────┐
-  tenant1.domain ──────► │  React SPA (pos-frontend-with-   │
-  tenant2.domain ──────► │  react) — POS admin + website    │
+  tenant1.domain ──────► │  React SPA (pos-frontend) —      │
+  tenant2.domain ──────► │  POS admin + website             │
                          └───────────────┬──────────────────┘
                                          │  subdomain → tenant
                                          ▼
@@ -92,13 +92,26 @@ type = LocationTypeEnum), DeliveryFee (per-city fee, `location_id` FK).
 - `CashDemoninationService` (sic), `FeatureService`,
   `ExcelDiscountProductReader`, `ExcelStockAuditReader`.
 
+### Jobs (app/Jobs) — queued on the central `jobs` table
+Queue: database driver; `DB_QUEUE_CONNECTION=mysql` pins the queue to the
+central DB (tenant context round-trips via `tenant_id` in the payload —
+stancl `QueueTenancyBootstrapper`). Worker: docker `queue` service.
+- `ExportJob` — background Excel export. Controllers expose
+  `static exportConfig()` (model/resource/dateColumn); `ExportExcel::exportToDisk()`
+  writes to the tenant public disk; `exports` row tracks status. Endpoints:
+  `POST /api/export/{uri}` (dispatch, immediate 201), `GET /api/exports`
+  (+ `/{id}`), download via `GET /api/download/{path}`. Frontend Exports page:
+  `pos-frontend/src/pages/exports/ExportList.jsx` (`/exports`).
+- `ImportJob`, `ProcessStockAuditJob`.
+
 ### Enums (app/Enums)
 OrderStatusEnum (Success/Pending/Draft), OrderTypeEnum (pos/website),
 PaymentMethodEnum, DiscountTypeEnum (PERCENTAGE/FIXED/FIXED_PRICE),
 StockUpdateTypeEnum (In/Out), StockUpdateReasonEnum, StockAuditEnum,
 CartStatusEnum, CashSessionStatus, CashDenominationStage, BrandStatusEnum,
 CategoryStatusEnum, ProductVariantStatusEnum, Sales/SaleReturnStatusEnum,
-ImportStatusEnum, ExportModelMap, FeatureKey (website_enabled/maintenance_mode),
+ImportStatusEnum, ExportStatusEnum (pending/processing/completed/failed),
+ExportModelMap, FeatureKey (website_enabled/maintenance_mode),
 RoleEnum, PermissionEnum, LocationTypeEnum (country/district/city, with
 `parentType()` helper).
 
@@ -115,7 +128,7 @@ discounts + discountables, features (central), locations + delivery_fees
 orders.split_payments, orders.total_discount_amount, products.brand_id,
 product_variants.status/image, customers login capability (customer_loginable).
 
-## Frontend (`pos-frontend-with-react/`) — React 18 + Vite
+## Frontend (`pos-frontend/`) — React 18 + Vite
 
 ### Stack
 Vite 5, TypeScript + legacy JSX mix, MUI v6 (+ some Mantine v7, rsuite), Tailwind 3,
