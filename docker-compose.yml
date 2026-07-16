@@ -1,0 +1,43 @@
+services:
+  backend:
+    build:
+      context: ./pos-backend
+      dockerfile: Dockerfile
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./pos-backend:/var/www
+    depends_on:
+      db:
+        condition: service_healthy
+  frontend:
+    build:
+      context: ./pos-frontend
+      dockerfile: Dockerfile
+    command: npm run dev -- --host --port 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./pos-frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+
+  db:
+    image: mysql:8.0
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_DATABASE: ant_pos_central
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  dbdata:
