@@ -35,7 +35,10 @@ Orders from both channels land in the same `orders` table, distinguished by
   levels since the parent is resolved row-by-row at store time.
 - **Delivery Fees** — per-city delivery charge (`delivery_fees`, one fee per
   city, FK to `locations`); managed at `/delivery-fees`. Excel import
-  (headers: `city`, `fee`).
+  (headers: `city`, `fee`). Website checkout requires choosing a deliverable
+  city (`GET api/website/delivery-locations`, public) and adds the fee to the
+  order (`orders.location_id`, `orders.delivery_fee`; fee included in
+  `total_amount` and payment).
 - **Product import/export** — Excel import (products, price updates, orders,
   purchases; failed-row download via signed URL), Excel export per module.
 
