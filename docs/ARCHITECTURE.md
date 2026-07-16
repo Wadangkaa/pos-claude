@@ -102,6 +102,10 @@ stancl `QueueTenancyBootstrapper`). Worker: docker `queue` service.
   `POST /api/export/{uri}` (dispatch, immediate 201), `GET /api/exports`
   (+ `/{id}`), download via `GET /api/download/{path}`. Frontend Exports page:
   `pos-frontend/src/pages/exports/ExportList.jsx` (`/exports`).
+- `ReportExportJob` — same pattern for `POST /api/report/export`; report data is
+  plain aggregated arrays (not Eloquent models), so `ReportExportController`
+  exposes static `resolveReportData()`/`buildSpreadsheet()` helpers the job
+  calls directly. Shares the `exports` table/page with model exports.
 - `ImportJob`, `ProcessStockAuditJob`.
 
 ### Enums (app/Enums)

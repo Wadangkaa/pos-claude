@@ -123,7 +123,8 @@ Orders from both channels land in the same `orders` table, distinguished by
 
 - Sales dashboard, product dashboard, daily sales, weekly sales, most-sold-tag
   report (routes in `routes/admin/report.php`, prefix `/api/report`).
-- Report export (`ReportExportController`, `useReportExport` hook).
+- Report export (`ReportExportController`, `useReportExport` hook) — queued like
+  every other export (`ReportExportJob`), downloaded from the Exports page.
 
 ## 8. Administration & platform
 
