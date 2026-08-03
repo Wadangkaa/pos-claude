@@ -106,6 +106,15 @@ stancl `QueueTenancyBootstrapper`). Worker: docker `queue` service.
   plain aggregated arrays (not Eloquent models), so `ReportExportController`
   exposes static `resolveReportData()`/`buildSpreadsheet()` helpers the job
   calls directly. Shares the `exports` table/page with model exports.
+  ⚠️ Two bugs fixed here (2026-08): `ReportExportController::REPORT_PARAMS`
+  must list every param a report method reads (`limit`, `threshold`, `sort`,
+  `sort_by`, `sort_direction`, `category_id`, on top of `brand_id`/dates) —
+  anything missing gets silently dropped and the export falls back to the
+  report's own default (top 20/10/5), quietly disagreeing with what the user
+  picked on screen. And `limit` can be the string `"all"`; passing that to
+  `->limit()` casts to `0` = `LIMIT 0` = empty file. Both report controllers
+  now go through `ReportController::applyResultLimit()`, which only applies
+  the cap when `is_numeric($limit) && (int) $limit > 0`.
 - `ImportJob`, `ProcessStockAuditJob`.
 
 ### Enums (app/Enums)

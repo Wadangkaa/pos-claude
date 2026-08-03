@@ -38,9 +38,15 @@ Orders from both channels land in the same `orders` table, distinguished by
 - **Delivery Fees** — per-city delivery charge (`delivery_fees`, one fee per
   city, FK to `locations`); managed at `/delivery-fees`. Excel import
   (headers: `city`, `fee`). Website checkout requires choosing a deliverable
-  city (`GET api/website/delivery-locations`, public) and adds the fee to the
-  order (`orders.location_id`, `orders.delivery_fee`; fee included in
-  `total_amount` and payment).
+  city (`GET api/website/delivery-locations`, public,
+  `DeliveryLocationController`) and adds the fee to the order
+  (`orders.location_id`, `orders.delivery_fee`; fee included in `total_amount`
+  and payment). Each row carries its full ancestry (`country`, `country_id`,
+  `district`, `district_id`, `city`, `location_id`, `fee`) so a country →
+  district → city cascade can be built client-side. Currently the storefront
+  (`pos-frontend/src/pages/website/pages/Cart.tsx`) only renders a flat
+  `"{city}, {district}"` select and ignores `country`/`country_id`/
+  `district_id` — no cascading UI yet, that's a follow-up.
 - **Product import/export** — Excel import (products, price updates, orders,
   purchases; failed-row download via signed URL). Excel export per module runs
   as a **queued background job** (`ExportJob`): `POST /api/export/{uri}` creates
@@ -125,6 +131,11 @@ Orders from both channels land in the same `orders` table, distinguished by
   report (routes in `routes/admin/report.php`, prefix `/api/report`).
 - Report export (`ReportExportController`, `useReportExport` hook) — queued like
   every other export (`ReportExportJob`), downloaded from the Exports page.
+  Fixed bug (2026-08): export was dropping `limit`/`sort`/`sort_by`/
+  `sort_direction`/`threshold`/`category_id`, so exports silently used each
+  report's default row count instead of what was selected on screen; also
+  `limit=all` used to produce an empty file (`LIMIT 0`). See
+  `docs/ARCHITECTURE.md` Jobs section for detail.
 
 ## 8. Administration & platform
 
