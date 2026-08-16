@@ -1,5 +1,2 @@
-pos-backend
-pos-backend/*
-
-pos-frontend
-pos-frontend/*
+/pos-backend/
+/pos-frontend/
