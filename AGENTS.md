@@ -3,10 +3,10 @@
 Multi-tenant Point of Sale system + e-commerce website for retail stores in Nepal.
 Two projects live in this workspace:
 
-| Directory | What it is |
-|---|---|
-| `pos-backend/` | Laravel 11 API (PHP 8.3, MySQL, Sanctum, stancl/tenancy). Serves both the POS admin API and the public website API. Has its own `CLAUDE.md` with Laravel Boost coding rules — follow it when working there. |
-| `pos-frontend/` | React 18 + Vite SPA (mixed TS/JSX). Contains BOTH the POS admin app and the customer-facing website (under `src/pages/website/`). |
+| Directory       | What it is                                                                                                                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pos-backend/`  | Laravel 11 API (PHP 8.3, MySQL, Sanctum, stancl/tenancy). Serves both the POS admin API and the public website API. Has its own `AGENTS.md` with Laravel Boost coding rules — follow it when working there. |
+| `pos-frontend/` | React 18 + Vite SPA (mixed TS/JSX). Contains BOTH the POS admin app and the customer-facing website (under `src/pages/website/`).                                                                           |
 
 ## ⚠️ CRITICAL: Product / Variant model is INVERTED vs. typical e-commerce
 
@@ -44,13 +44,13 @@ channels — `orders.type` is `OrderTypeEnum: 'pos' | 'website'`. Nepal specific
 
 ## Documentation map (keep these updated!)
 
-| File | Contents |
-|---|---|
-| `CLAUDE.md` (this file) | Workspace overview + the product/variant rule |
-| `docs/FEATURES.md` | Full feature inventory for POS + website |
-| `docs/ARCHITECTURE.md` | Backend/frontend structure, routes, models, services, conventions |
+| File                             | Contents                                                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `AGENTS.md` (this file)          | Workspace overview + the product/variant rule                                                                                         |
+| `docs/FEATURES.md`               | Full feature inventory for POS + website                                                                                              |
+| `docs/ARCHITECTURE.md`           | Backend/frontend structure, routes, models, services, conventions                                                                     |
 | `pos-backend/DATABASE_SCHEMA.md` | DB schema (written Oct 2025 — core tables accurate, but see the "Newer tables" note in docs/ARCHITECTURE.md for entities added since) |
-| `pos-backend/CLAUDE.md` | Laravel Boost coding guidelines for backend work |
+| `pos-backend/AGENTS.md`          | Laravel Boost coding guidelines for backend work                                                                                      |
 
 **Update policy:** whenever a feature is added/changed, update `docs/FEATURES.md`;
 whenever structure/routes/models change, update `docs/ARCHITECTURE.md`; whenever a
@@ -60,6 +60,7 @@ session-to-session memory of this project.
 ## Common commands
 
 Backend (run in `pos-backend/`):
+
 ```bash
 php artisan serve                 # dev server
 php artisan test                  # PHPUnit tests
@@ -69,6 +70,7 @@ php artisan tenants:migrate       # tenant migrations (database/migrations/tenan
 ```
 
 Frontend (run in `pos-frontend/`):
+
 ```bash
 npm run dev                       # Vite dev server
 npm run build                     # tsc -b && vite build
