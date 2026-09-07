@@ -10,8 +10,8 @@ http:
     type: json
     data: |-
       {
-          "name": "kritipur",
-          "email": "kritipur@pos.com",
+          "name": "test",
+          "email": "test@example.com",
           "phone": "9801234568"
       }
   auth: inherit
@@ -21,3 +21,4 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

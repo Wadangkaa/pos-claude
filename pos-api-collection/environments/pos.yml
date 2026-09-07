@@ -3,4 +3,4 @@ variables:
   - name: base_url
     value: http://localhost:8000/api
   - name: token
-    value: ""
+    value: 1|zIjG3KDLMpcDAN3OjjPZ0Nvv3Rtzvsc1g5WeL4RV870c312a
