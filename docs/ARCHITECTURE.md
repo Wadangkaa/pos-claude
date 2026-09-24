@@ -119,7 +119,10 @@ type = LocationTypeEnum), DeliveryFee (per-city fee, `location_id` FK).
 - `Orders/CreateOrder` — order creation pipeline (stock deduction, payments).
 - `Websites/CartService`, `Websites/WebsiteOrderService` — website cart/checkout;
   `Websites/WebsiteOrderNotificationService` sends customer receipts and configured
-  admin order notifications after checkout.
+  admin order notifications after checkout, plus queued customer emails when
+  website delivery status changes (including the Pending status on acceptance).
+  `WebsiteOrderDeliveryStatusNotification` captures the order code and new status;
+  unchanged statuses and customers without a valid email do not dispatch it.
 - `Websites/WebsiteFulfillmentService` — locks branch balances, selects and
   reserves a fulfillment branch for a pending checkout, consumes reservations on
   confirmation, and safely reassigns them for authorized administrators.

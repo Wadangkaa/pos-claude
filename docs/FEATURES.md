@@ -119,8 +119,10 @@ Orders from both channels land in the same `orders` table, distinguished by
   reservation without changing physical stock or payments. Accepting updates the
   existing website order; it never creates or converts it into a POS sale, deducts
   the reserved stock, and starts a separate delivery status at Pending. Staff can
-  later mark delivery Completed; delivery status is tracking-only and has no stock
-  or payment effect. Storefront availability and quantity controls show physical
+  later mark delivery Completed; each actual delivery-status change emails the
+  customer when they have a valid email address, without duplicating emails for
+  repeated selections. Delivery status is tracking-only and has no stock or
+  payment effect. Storefront availability and quantity controls show physical
   stock less pending reservations. Checkout emails the customer and sends the admin
   alert to the POS-configured notification email. The POS Sales list contains
   POS-channel orders only. Website Orders has its own queued export, with Orders
