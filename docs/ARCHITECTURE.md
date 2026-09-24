@@ -41,7 +41,7 @@ dev: pint, larastan, phpunit 11, laravel/boost.
 | `routes/tenant.php` | wraps the below in `api` prefix per tenant | Tenant bootstrapping; report routes enforce branch/admin access |
 | `routes/api.php` | `/api`, `auth:sanctum` | The whole POS admin API (products, orders, inventory, cash, settings…) |
 | `routes/admin/report.php` | `/api/report`, `auth:sanctum` + branch access | Reporting endpoints |
-| `routes/website/guest.php` | `/api/website` public | Catalog: categories, attributes, product-groups, products, similar, feature flags |
+| `routes/website/guest.php` | `/api/website` public | Catalog: categories, attributes, product-groups (including raw and discount-adjusted child-product price ranges), products, similar, feature flags |
 | `routes/website/customerAuth.php` | `/api/website/customer` | Customer register/login/profile/logout/orders |
 | `routes/website/cart.php` | `/api/cart`, `auth:customer` | Cart CRUD + checkout |
 | `routes/website/order.php` | `/api/orders`, `auth:customer` | Customer order history |

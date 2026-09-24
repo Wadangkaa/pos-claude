@@ -1,7 +1,7 @@
 # ANT POS — Feature Inventory
 
 > Update this file whenever a feature is added, changed, or removed.
-> Last updated: 2026-09-11
+> Last updated: 2026-09-24
 
 The system has two sales channels sharing one backend and one product catalog:
 1. **POS** — staff-facing admin/cashier app (tenant subdomain, staff login)
@@ -82,7 +82,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   polymorphic `discountables`, bulk attach/detach and Excel import of discounted /
   fixed-price product lists (percentage/fixed import needs SKU column only;
   fixed-price import needs SKU + final price). Product exposes computed
-  `discount_details`.
+  `discount_details`. Website product details show the discounted final price,
+  original price, and discount label; product-group cards calculate and show their
+  min/max range from child products' final prices and identify groups with a sale.
 - **Customers** — CRM basics, linked to orders.
 - **Footfall / customer returns** — records gender + reason of walk-outs (analytics,
   not product returns). Route `/footfall`.
