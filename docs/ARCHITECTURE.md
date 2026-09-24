@@ -151,8 +151,8 @@ preventing a slow workbook from being executed twice.
 queued tenant jobs therefore must not query mail settings during
 `TenancyInitialized`.
 The queue-level `JobFailed` listener re-enters the payload's tenant context and
-marks failed `ExportJob`/`ReportExportJob` records as failed, including errors
-raised before the job's `handle()` method can run.
+marks failed `ExportJob`/`ReportExportJob`/`StockAuditExportJob` records as
+failed, including errors raised before the job's `handle()` method can run.
 - `ExportJob` — background Excel export. Controllers expose
   `static exportConfig()` (model/resource/dateColumn, with optional worksheet
   definitions); `ExportExcel::exportToDisk()`
@@ -175,6 +175,10 @@ raised before the job's `handle()` method can run.
   `->limit()` casts to `0` = `LIMIT 0` = empty file. Both report controllers
   now go through `ReportController::applyResultLimit()`, which only applies
   the cap when `is_numeric($limit) && (int) $limit > 0`.
+- `StockAuditExportJob` — `POST /api/stock-audit/{id}/export` queues a completed
+  audit's workbook. `StockAuditExport` writes the All, Matched, Mismatch,
+  Missing in System, and Missing in Physical result sheets; the finished file
+  is listed and downloaded through the shared Exports page.
 - `ImportJob`, `ProcessStockAuditJob`.
 
 ### Enums (app/Enums)

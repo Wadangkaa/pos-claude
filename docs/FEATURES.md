@@ -128,7 +128,10 @@ Orders from both channels land in the same `orders` table, distinguished by
 - **Damage products** — damaged-stock listing + adjust flow.
 - **Stock audit** — Excel-upload physical count audit (`stock_audits`,
   `stock_audit_items`, `stock_audit_results`, `stock_audit_summaries`,
-  `ExcelStockAuditReader`), compare counted vs. system stock.
+  `ExcelStockAuditReader`), compare counted vs. system stock. A completed audit
+  can be exported through the standard Exports page as one workbook with
+  **All**, **Matched**, **Mismatch**, **Missing in System**, and **Missing in
+  Physical** worksheets.
 - **Inventory configuration** page.
 - **Branches and transfers** — one company tenant can operate multiple branches.
   A staff hostname fixes the active branch and its inventory balance
