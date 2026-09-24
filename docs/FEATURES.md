@@ -4,10 +4,12 @@
 > Last updated: 2026-09-24
 
 The system has two sales channels sharing one backend and one product catalog:
-1. **POS** — staff-facing admin/cashier app (tenant subdomain, staff login)
+1. **POS** — staff-facing admin/cashier app at `/pos/dashboard` (tenant subdomain,
+   staff login at `/pos/login`)
 2. **Website** — customer-facing e-commerce storefront selling the same products
-   (same SPA, routes under `src/pages/website/`, customer login, feature-flagged
-   per tenant via `website_enabled`)
+   at `/` (same SPA, routes under `src/pages/website/`, customer login at
+   `/login`, feature-flagged per tenant via `website_enabled`). Old
+   `/website/*` links redirect to the corresponding customer routes.
 
 Orders from both channels land in the same `orders` table, distinguished by
 `orders.type` (`pos` | `website`).
@@ -36,7 +38,7 @@ Orders from both channels land in the same `orders` table, distinguished by
   Excel import (headers: `name`, `type`, `parent`); one file can hold all
   levels since the parent is resolved row-by-row at store time.
 - **Delivery Fees** — per-city delivery charge (`delivery_fees`, one fee per
-  city, FK to `locations`); managed at `/delivery-fees`. Excel import
+  city, FK to `locations`); managed at `/pos/delivery-fees`. Excel import
   (headers: `city`, `fee`). Website checkout requires choosing a deliverable
   city (`GET api/website/delivery-locations`, public,
   `DeliveryLocationController`) and adds the fee to the order
@@ -52,7 +54,7 @@ Orders from both channels land in the same `orders` table, distinguished by
   as a **queued background job** (`ExportJob`): `POST /api/export/{uri}` creates
   an `exports` row (pending/processing/completed/failed) and returns
   immediately; the file is written to tenant storage and downloaded from the
-  **Exports page** (`/exports`, `GET /api/exports`), which polls while a job is
+  **Exports page** (`/pos/exports`, `GET /api/exports`), which polls while a job is
   active. Export jobs run on a dedicated worker so large workbooks do not wait
   behind notifications or other background work. Optional from/to date range;
   no dates = full table.
@@ -87,7 +89,7 @@ Orders from both channels land in the same `orders` table, distinguished by
   min/max range from child products' final prices and identify groups with a sale.
 - **Customers** — CRM basics, linked to orders.
 - **Footfall / customer returns** — records gender + reason of walk-outs (analytics,
-  not product returns). Route `/footfall`.
+  not product returns). Route `/pos/footfall`.
 
 ## 3. Website (e-commerce)
 

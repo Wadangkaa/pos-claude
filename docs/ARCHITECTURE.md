@@ -23,7 +23,10 @@
 
 - Tenant identified by subdomain; each tenant has an isolated MySQL database.
 - One SPA serves two UIs: POS admin (staff, Sanctum user tokens) and the public
-  website (customers, Sanctum `auth:customer` guard).
+  website (customers, Sanctum `auth:customer` guard). The website owns `/` and
+  customer paths such as `/product/:sku`, `/cart`, `/orders`, and `/login`;
+  staff pages are all under `/pos`, including `/pos/login` and `/pos/dashboard`.
+  Backend API paths are unchanged.
 - Timezone +05:45 (Nepal), VAT 13%, Nepali-date support.
 
 ## Backend (`pos-backend/`) — Laravel 11, PHP 8.3
@@ -162,7 +165,7 @@ failed, including errors raised before the job's `handle()` method can run.
   writes to the tenant public disk; `exports` row tracks status. Endpoints:
   `POST /api/export/{uri}` (dispatch, immediate 201), `GET /api/exports`
   (+ `/{id}`), download via `GET /api/download/{path}`. Frontend Exports page:
-  `pos-frontend/src/pages/exports/ExportList.jsx` (`/exports`).
+  `pos-frontend/src/pages/exports/ExportList.jsx` (`/pos/exports`).
   The Sales workbook config produces an `Orders` summary sheet (including the
   overall order discount) plus an `Order Items` detail sheet.
 - `ReportExportJob` — same pattern for `POST /api/report/export`; report data is
@@ -243,13 +246,13 @@ chart.js, sonner (toasts), react-to-print.
 ### Structure (src/)
 | Dir | Purpose |
 |---|---|
-| `routes.tsx` | All POS admin routes (guards: `AuthRoutes`/`GuestRoutes`) + mounts `websiteRoutes` |
+| `routes.tsx` | All `/pos/*` staff routes (guards: `AuthRoutes`/`GuestRoutes`) + mounts root-level `websiteRoutes` |
 | `pages/*` | One folder per module, typical files: `*List`, `Columns`, `Model` (form modal), `*Details` |
 | `pages/website/` | Entire customer storefront: pages (Home, ProductDetail, Cart, Orders, Login, Register, TagProducts), `router/`, `layouts/WebsiteLayout`, `middlewares/WebsiteEnabledMiddleware`, own hooks/services. TagProducts reuses Home's catalog grid, sidebar filters, and pagination with a `tag_id` filter; navbar tag links carry their parent `category_id` so the matching sidebar category is checked. |
 | `api/` | Axios service modules (productService, orderService, websiteProductService, websiteOrderService, websiteAuthService, cartService…) |
 | `redux/` | store, slices (authSlice, orderFormSlice, brandSlice), selectors |
 | `components/` | Shared UI: Tables/CustomTable, Orders (billing, split billing, order summary), Products, Discount, Reports, Layout (sidebar/topnav), ui (shadcn-style) |
-| `utilities/domain.ts` | Browser hostname → tenant resolution (`VITE_DEFAULT_TENANT` fallback); identifies `admin.` portal host |
+| `utilities/domain.ts`, `utilities/routePaths.js` | Browser hostname → tenant resolution; POS path and legacy `/website/*` redirect helpers |
 | `guards/`, `hooks/`, `schemas/`, `types/`, `context/` | Route guards, shared hooks, zod schemas, TS types |
 
 ### Tenant/API wiring
@@ -257,16 +260,14 @@ The SPA derives the tenant from the browser subdomain (`getSubdomain()`), and AP
 calls target the tenant's backend. Local dev works with `tenant1.localhost`-style
 hosts. Env: `VITE_DEFAULT_TENANT`.
 
-### POS route map highlights
-`/` dashboard · `/products` `/product-variants` (catalog) · `/orders` `/sales`
-`/sales-return` `/invoice/:id` (sales) · `/website-orders` (website channel) ·
-`/purchase` `/stock-adjustment` `/stock-transactions` `/stock-audit`
-`/damage-products` (inventory) · `/cash-denominations` `/currency-config`
-`/note-config` `/expenses` (cash) · `/discount` `/categories` `/brands` `/tags`
-`/attributes` `/attribute-names` (catalog meta) · `/customers` `/suppliers`
-`/branches` `/users` `/roles` (parties) · `/locations` `/delivery-fees` (shipping) · `/sales-report` `/products-report`
-(reports) · `/pos-config` `/website-config` `/inventory-configs`
-`/payment-methods` `/system-logs` `/footfall` (admin).
+### Frontend route map highlights
+Customer storefront: `/` home, `/product/:sku`, `/tag/:id`, `/cart`,
+`/orders`, `/orders/:id`, `/login`, `/register`. The former `/website/*`
+paths redirect client-side to their root-level equivalents, preserving queries.
+Staff: `/pos` redirects to `/pos/dashboard`; other pages include
+`/pos/sales`, `/pos/orders`, `/pos/sales-return`, `/pos/website-orders`,
+`/pos/products`, `/pos/stock-audit`, `/pos/exports`, `/pos/sales-report`,
+`/pos/website-config`, and `/pos/login`. Every staff route is under `/pos`.
 
 ### Website-order fulfilment
 
@@ -290,7 +291,7 @@ to create a workbook limited to website-channel orders.
   adjustments/returns/audits correct.
 - **Codes:** `PROD####`, `ORD####` — generated from the last row's code suffix.
 - **Website orders:** created Pending via cart checkout; staff see all website-channel
-  orders in `/website-orders`, can filter by Pending/Confirmed status, and confirm
+  orders in `/pos/website-orders`, can filter by Pending/Confirmed status, and confirm
   them through `/api/order/{id}/confirm`. Confirmation updates the same row to
   Success and retains `type = website`; pending orders reserve stock by summing their
   quantities during an atomically locked checkout, and confirmation deducts that
