@@ -119,8 +119,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   order (`Cart`, `CartItem`, `CartStatusEnum`, `Services/Websites/CartService`).
   Checkout locks branch stock, automatically assigns the first branch that can
   fulfill every cart item, and records a pending reservation there. Confirmation
-  consumes that reservation and deducts the same branch. On the company admin
-  host, an administrator can move a pending order to another sufficiently stocked
+  consumes that reservation and deducts the same branch; cancellation releases
+  the reservation without deducting stock. On the company admin host, an
+  administrator can move a pending order to another sufficiently stocked
   branch; the override is retained in the order fulfillment audit data.
 - **Customer order history** — `/api/orders` for the logged-in customer.
 - **Customer account menu** — logged-in navbar uses a round initials button

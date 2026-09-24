@@ -131,7 +131,9 @@ type = LocationTypeEnum), DeliveryFee (per-city fee, `location_id` FK).
   unchanged statuses and customers without a valid email do not dispatch it.
 - `Websites/WebsiteFulfillmentService` — locks branch balances, selects and
   reserves a fulfillment branch for a pending checkout, consumes reservations on
-  confirmation, and safely reassigns them for authorized administrators.
+  confirmation, releases them on cancellation, and safely reassigns them for
+  authorized administrators. Legacy pending orders without reservations remain
+  confirmable and cancellable.
 - `BranchContext` — holds the tenant-domain-selected forced branch or portal type;
   `ScopesToBranch` applies that branch to Eloquent operational models.
 - `BranchStockService`, `StockTransactionService`, `ProductStockService`, `UpdateStockAdjustmentService`,
