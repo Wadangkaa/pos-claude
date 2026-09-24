@@ -56,7 +56,7 @@ Orders from both channels land in the same `orders` table, distinguished by
   active. Export jobs run on a dedicated worker so large workbooks do not wait
   behind notifications or other background work. Optional from/to date range;
   no dates = full table.
-  Sales exports contain two worksheets: **Orders** (one row per sale, including
+  POS Sales exports contain two worksheets: **Orders** (one row per sale, including
   the overall order discount, return count, cumulative return total, and net
   sales after returns) and **Order Items** (one row per sold product).
   On the company admin host, product details additionally show every branch's
@@ -114,7 +114,8 @@ Orders from both channels land in the same `orders` table, distinguished by
   or payment effect. Storefront availability and quantity controls show physical
   stock less pending reservations. Checkout emails the customer and sends the admin
   alert to the POS-configured notification email. The POS Sales list contains
-  POS-channel orders only.
+  POS-channel orders only. Website Orders has its own queued export, with Orders
+  and Order Items worksheets limited to the website channel.
 - **Website settings / feature flag** — website can be enabled/disabled per tenant
   (`FeatureKey::WEBSITE`); disabled state page; website details (name/branding)
   saved in settings and exposed publicly; `WebsiteConfig` admin page.

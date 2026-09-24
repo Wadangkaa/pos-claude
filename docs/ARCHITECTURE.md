@@ -254,6 +254,9 @@ Staff manage website orders through `POST /api/order/{id}/confirm`,
 Cancellation is allowed only while a website order remains pending. Confirmation
 sets `orders.delivery_status` to `pending`; later delivery updates (`pending` or
 `completed`) are tracking-only and do not create stock or payment records.
+`POST /api/export/order` produces only POS-channel sales; Website Orders calls
+`POST /api/export/website-orders-export`, backed by `WebsiteOrderExportController`,
+to create a workbook limited to website-channel orders.
 
 ## Business rules quick reference
 
