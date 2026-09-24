@@ -41,7 +41,7 @@ dev: pint, larastan, phpunit 11, laravel/boost.
 | `routes/tenant.php` | wraps the below in `api` prefix per tenant | Tenant bootstrapping; report routes enforce branch/admin access |
 | `routes/api.php` | `/api`, `auth:sanctum` | The whole POS admin API (products, orders, inventory, cash, settings…) |
 | `routes/admin/report.php` | `/api/report`, `auth:sanctum` + branch access | Reporting endpoints |
-| `routes/website/guest.php` | `/api/website` public | Catalog: categories, attributes, product-groups (including raw and discount-adjusted child-product price ranges), products, similar, feature flags |
+| `routes/website/guest.php` | `/api/website` public | Catalog: categories, attributes, product-groups (including `tag_id` filtering and raw/discount-adjusted child-product price ranges), products, similar, feature flags |
 | `routes/website/customerAuth.php` | `/api/website/customer` | Customer register/login/profile/logout/orders |
 | `routes/website/cart.php` | `/api/cart`, `auth:customer` | Cart CRUD + checkout |
 | `routes/website/order.php` | `/api/orders`, `auth:customer` | Customer order history |
@@ -224,7 +224,7 @@ chart.js, sonner (toasts), react-to-print.
 |---|---|
 | `routes.tsx` | All POS admin routes (guards: `AuthRoutes`/`GuestRoutes`) + mounts `websiteRoutes` |
 | `pages/*` | One folder per module, typical files: `*List`, `Columns`, `Model` (form modal), `*Details` |
-| `pages/website/` | Entire customer storefront: pages (Home, ProductDetail, Cart, Orders, Login, Register, TagProducts), `router/`, `layouts/WebsiteLayout`, `middlewares/WebsiteEnabledMiddleware`, own hooks/services |
+| `pages/website/` | Entire customer storefront: pages (Home, ProductDetail, Cart, Orders, Login, Register, TagProducts), `router/`, `layouts/WebsiteLayout`, `middlewares/WebsiteEnabledMiddleware`, own hooks/services. TagProducts reuses Home's catalog grid, sidebar filters, and pagination with a `tag_id` filter. |
 | `api/` | Axios service modules (productService, orderService, websiteProductService, websiteOrderService, websiteAuthService, cartService…) |
 | `redux/` | store, slices (authSlice, orderFormSlice, brandSlice), selectors |
 | `components/` | Shared UI: Tables/CustomTable, Orders (billing, split billing, order summary), Products, Discount, Reports, Layout (sidebar/topnav), ui (shadcn-style) |

@@ -92,7 +92,10 @@ Orders from both channels land in the same `orders` table, distinguished by
 ## 3. Website (e-commerce)
 
 - **Storefront** — home, product-group listing, product detail, similar products,
-  tag-filtered listing, category navbar, attribute filter sidebar.
+  tag-filtered listing, category navbar, attribute filter sidebar. Navbar category
+  labels open tag dropdowns without navigating; selecting a tag shows only
+  matching product groups in the same sidebar-filterable, paginated catalog as
+  the home page.
   Public endpoints under `/api/website/*`.
 - **Customer accounts** — register, login (Sanctum `auth:customer` guard on the
   Customer model), profile, logout.
