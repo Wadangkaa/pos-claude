@@ -206,6 +206,11 @@ defaults existing rows to Daily and adds a private `bill_image_path`; uploaded
 bills are fetched only through authenticated `GET /api/expense/{id}/bill-image`.
 `GET /api/report/total-daily-expenses` sums Daily expenses whose expense date is
 today, independent of sales, cash, or stock accounting.
+`GET /api/report/sales/daily` also groups all expenses by expense date and type,
+returning `expenses`, `daily_expenses`, and `overall_expenses` on each date row.
+These values are separate from Net Sales and pass through the generic daily
+report export. Expenses have no brand relation, so brand-filtered sales rows
+still show expenses across all brands.
 
 ### Newer tables NOT in `pos-backend/DATABASE_SCHEMA.md` (doc dated Oct 2025)
 brands, categories (+categories_tags), sales_returns + sale_return_items,
