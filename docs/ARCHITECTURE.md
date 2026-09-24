@@ -211,6 +211,12 @@ returning `expenses`, `daily_expenses`, and `overall_expenses` on each date row.
 These values are separate from Net Sales and pass through the generic daily
 report export. Expenses have no brand relation, so brand-filtered sales rows
 still show expenses across all brands.
+All four sales-period endpoints (`/api/report/sales/{daily,weekly,monthly,yearly}`)
+accept optional `order_type=all|pos|website` (default `all`). The filter joins
+payments and sales returns to `orders.type` so sales, counts, returns, and the
+daily payment summary stay in the selected channel. `ReportExportController`
+forwards the same filter to queued exports. Expense figures remain across all
+order types because expenses are not linked to orders.
 
 ### Newer tables NOT in `pos-backend/DATABASE_SCHEMA.md` (doc dated Oct 2025)
 brands, categories (+categories_tags), sales_returns + sale_return_items,

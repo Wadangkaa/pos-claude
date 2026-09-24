@@ -182,10 +182,15 @@ Orders from both channels land in the same `orders` table, distinguished by
 
 - Sales dashboard, product dashboard, daily sales, weekly sales, most-sold-tag
   report (routes in `routes/admin/report.php`, prefix `/api/report`).
+- Daily, weekly, monthly, and yearly sales reports have an All/POS/Website order
+  type filter. It applies to sales, order counts, returns, payment summaries,
+  charts, and exports; All preserves the combined view. The selected type stays
+  active while switching sales-report tabs.
 - The daily sales report shows each date's expense total with Daily and Overall
   breakdowns in both the screen table and exported workbook. Expenses are
   shown separately and do not reduce Net Sales; because expenses have no brand
-  assignment, their figures remain across all brands when sales are filtered.
+  or order-type assignment, their figures remain across all brands and channels
+  when sales are filtered.
 - On an `admin.` company hostname, Sales and Product reports include an
   all-branches/selected-branch filter. The same branch filter is forwarded to
   queued report exports. A branch staff hostname ignores a supplied `branch_id`
