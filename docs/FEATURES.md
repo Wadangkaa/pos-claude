@@ -57,7 +57,8 @@ Orders from both channels land in the same `orders` table, distinguished by
   behind notifications or other background work. Optional from/to date range;
   no dates = full table.
   Sales exports contain two worksheets: **Orders** (one row per sale, including
-  the overall order discount) and **Order Items** (one row per sold product).
+  the overall order discount, return count, cumulative return total, and net
+  sales after returns) and **Order Items** (one row per sold product).
   On the company admin host, product details additionally show every branch's
   physical, reserved, and available balance alongside company totals.
 
