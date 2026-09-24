@@ -182,7 +182,8 @@ failed, including errors raised before the job's `handle()` method can run.
 - `ImportJob`, `ProcessStockAuditJob`.
 
 ### Enums (app/Enums)
-OrderStatusEnum (Success/Pending/Draft), OrderTypeEnum (pos/website),
+OrderStatusEnum (Success/Pending/Draft/Cancelled), OrderTypeEnum (pos/website),
+WebsiteOrderDeliveryStatusEnum (pending/completed),
 PaymentMethodEnum, DiscountTypeEnum (PERCENTAGE/FIXED/FIXED_PRICE),
 StockUpdateTypeEnum (In/Out), StockUpdateReasonEnum, StockAuditEnum,
 CartStatusEnum, CashSessionStatus, CashDenominationStage, BrandStatusEnum,
@@ -245,6 +246,14 @@ hosts. Env: `VITE_DEFAULT_TENANT`.
 `/branches` `/users` `/roles` (parties) · `/locations` `/delivery-fees` (shipping) · `/sales-report` `/products-report`
 (reports) · `/pos-config` `/website-config` `/inventory-configs`
 `/payment-methods` `/system-logs` `/footfall` (admin).
+
+### Website-order fulfilment
+
+Staff manage website orders through `POST /api/order/{id}/confirm`,
+`POST /api/order/{id}/cancel`, and `PUT /api/order/{id}/delivery-status`.
+Cancellation is allowed only while a website order remains pending. Confirmation
+sets `orders.delivery_status` to `pending`; later delivery updates (`pending` or
+`completed`) are tracking-only and do not create stock or payment records.
 
 ## Business rules quick reference
 

@@ -105,14 +105,16 @@ Orders from both channels land in the same `orders` table, distinguished by
 - Cart items and order items show the product's own thumbnail/first image, falling
   back to its product group's images (`Product::displayThumbnail()`).
 - **Website order management (POS side)** — staff list contains every website-channel
-  order (Pending/Confirmed status filter), website order details, and confirmation
-  flow. Confirming updates the existing website order; it never creates or converts
-  it into a POS sale. Pending website orders reserve their requested stock during
-  checkout, preventing later checkouts from overselling; confirmation deducts the
-  reserved stock. Storefront availability and quantity controls show physical stock
-  less pending reservations. Checkout emails the customer and sends the admin alert
-  to the POS-configured notification email. The POS Sales list contains POS-channel
-  orders only.
+  order (Pending/Accepted/Cancelled status filter), website order details, and
+  fulfilment flow. Staff can cancel a pending website order, which releases its
+  reservation without changing physical stock or payments. Accepting updates the
+  existing website order; it never creates or converts it into a POS sale, deducts
+  the reserved stock, and starts a separate delivery status at Pending. Staff can
+  later mark delivery Completed; delivery status is tracking-only and has no stock
+  or payment effect. Storefront availability and quantity controls show physical
+  stock less pending reservations. Checkout emails the customer and sends the admin
+  alert to the POS-configured notification email. The POS Sales list contains
+  POS-channel orders only.
 - **Website settings / feature flag** — website can be enabled/disabled per tenant
   (`FeatureKey::WEBSITE`); disabled state page; website details (name/branding)
   saved in settings and exposed publicly; `WebsiteConfig` admin page.
