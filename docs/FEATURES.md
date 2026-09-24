@@ -96,8 +96,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   labels open tag dropdowns without navigating; selecting a tag shows only
   matching product groups in the same sidebar-filterable, paginated catalog as
   the home page. A tag selected from the navbar checks its parent category in
-  the sidebar and displays the active tag separately; the category checkbox
-  can include multiple tags, while a single tag stays narrower.
+  the sidebar. Unchecking that category or clearing filters removes the tag
+  selection; a category can include multiple tags, while a single tag stays
+  narrower.
   Public endpoints under `/api/website/*`.
 - **Customer accounts** — register, login (Sanctum `auth:customer` guard on the
   Customer model), profile, logout.
