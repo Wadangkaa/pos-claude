@@ -1,7 +1,7 @@
 # ANT POS — Feature Inventory
 
 > Update this file whenever a feature is added, changed, or removed.
-> Last updated: 2026-07-10
+> Last updated: 2026-09-11
 
 The system has two sales channels sharing one backend and one product catalog:
 1. **POS** — staff-facing admin/cashier app (tenant subdomain, staff login)
@@ -42,24 +42,33 @@ Orders from both channels land in the same `orders` table, distinguished by
   `DeliveryLocationController`) and adds the fee to the order
   (`orders.location_id`, `orders.delivery_fee`; fee included in `total_amount`
   and payment). Each row carries its full ancestry (`country`, `country_id`,
-  `district`, `district_id`, `city`, `location_id`, `fee`) so a country →
-  district → city cascade can be built client-side. Currently the storefront
-  (`pos-frontend/src/pages/website/pages/Cart.tsx`) only renders a flat
-  `"{city}, {district}"` select and ignores `country`/`country_id`/
-  `district_id` — no cascading UI yet, that's a follow-up.
+  `district`, `district_id`, `city`, `location_id`, `fee`) so the storefront
+  checkout (`pos-frontend/src/pages/website/pages/Cart.tsx`) can offer a
+  country → district → city cascade. Customers can also provide an optional
+  delivery landmark/detailed location; it is saved on `orders.delivery_landmark`
+  and shown with the complete delivery address in staff website-order details.
 - **Product import/export** — Excel import (products, price updates, orders,
   purchases; failed-row download via signed URL). Excel export per module runs
   as a **queued background job** (`ExportJob`): `POST /api/export/{uri}` creates
   an `exports` row (pending/processing/completed/failed) and returns
   immediately; the file is written to tenant storage and downloaded from the
   **Exports page** (`/exports`, `GET /api/exports`), which polls while a job is
-  active. Optional from/to date range; no dates = full table.
+  active. Export jobs run on a dedicated worker so large workbooks do not wait
+  behind notifications or other background work. Optional from/to date range;
+  no dates = full table.
+  Sales exports contain two worksheets: **Orders** (one row per sale, including
+  the overall order discount) and **Order Items** (one row per sold product).
+  On the company admin host, product details additionally show every branch's
+  physical, reserved, and available balance alongside company totals.
 
 ## 2. Sales (POS)
 
 - **Order creation** — cart-style billing with barcode input, quantity/weight items,
-  item-level % discount, order-level % discount, final flat discount, VAT 13%
+  item-level % discount, order-level % discount, final flat discount, VAT 13%, and
+  a selectable sale date and time
   (Nepal, inclusive: total × 13/113).
+- **Sales list filters** — filter POS sales by payment status, sales status, or
+  payment method (including split/multiple-method payments).
 - **Payments** — single method, or **split payments** across methods; cash received /
   change; payment methods configurable in settings; payment status & sales status lists.
 - **Draft orders** — save draft, update draft, confirm later (`/order-draft`,
@@ -86,11 +95,23 @@ Orders from both channels land in the same `orders` table, distinguished by
   Customer model), profile, logout.
 - **Cart** — add/remove/update-quantity/clear, then **checkout** → creates a website
   order (`Cart`, `CartItem`, `CartStatusEnum`, `Services/Websites/CartService`).
+  Checkout locks branch stock, automatically assigns the first branch that can
+  fulfill every cart item, and records a pending reservation there. Confirmation
+  consumes that reservation and deducts the same branch. On the company admin
+  host, an administrator can move a pending order to another sufficiently stocked
+  branch; the override is retained in the order fulfillment audit data.
 - **Customer order history** — `/api/orders` for the logged-in customer.
 - Cart items and order items show the product's own thumbnail/first image, falling
   back to its product group's images (`Product::displayThumbnail()`).
-- **Website order management (POS side)** — pending-website-orders list for staff,
-  website order details, confirm flow (website orders arrive Pending, staff confirm).
+- **Website order management (POS side)** — staff list contains every website-channel
+  order (Pending/Confirmed status filter), website order details, and confirmation
+  flow. Confirming updates the existing website order; it never creates or converts
+  it into a POS sale. Pending website orders reserve their requested stock during
+  checkout, preventing later checkouts from overselling; confirmation deducts the
+  reserved stock. Storefront availability and quantity controls show physical stock
+  less pending reservations. Checkout emails the customer and sends the admin alert
+  to the POS-configured notification email. The POS Sales list contains POS-channel
+  orders only.
 - **Website settings / feature flag** — website can be enabled/disabled per tenant
   (`FeatureKey::WEBSITE`); disabled state page; website details (name/branding)
   saved in settings and exposed publicly; `WebsiteConfig` admin page.
@@ -109,6 +130,16 @@ Orders from both channels land in the same `orders` table, distinguished by
   `stock_audit_items`, `stock_audit_results`, `stock_audit_summaries`,
   `ExcelStockAuditReader`), compare counted vs. system stock.
 - **Inventory configuration** page.
+- **Branches and transfers** — one company tenant can operate multiple branches.
+  A staff hostname fixes the active branch and its inventory balance
+  (`branch_product_stocks`); stock transfers are sent then received between
+  branches without changing company-wide stock. The company admin hostname can
+  view consolidated or selected-branch reporting.
+  New tenant provisioning creates `Main`, an admin hostname, and a super-admin
+  tenant user; branches created from the company admin portal automatically get
+  their own hostname mapping and creator assignment. Company admins can manage
+  the shared Products/Product Variants catalog and create staff users with one
+  or more branch assignments from the admin host.
 
 ## 5. Cash management
 
@@ -122,13 +153,18 @@ Orders from both channels land in the same `orders` table, distinguished by
 ## 6. Procurement & partners
 
 - **Suppliers** — vendor records (PAN number etc.), linked to products/variants/purchases.
-- **Stores** — physical outlets with VAT/PAN info and tax %; orders/purchases belong
-  to a store.
+- **Branches** — physical outlets with VAT/PAN info and tax %; orders, purchases,
+  stock adjustments, sales returns, expenses, and inventory transactions belong to
+  a branch. Staff are assigned to branches.
 
 ## 7. Reporting
 
 - Sales dashboard, product dashboard, daily sales, weekly sales, most-sold-tag
   report (routes in `routes/admin/report.php`, prefix `/api/report`).
+- On an `admin.` company hostname, Sales and Product reports include an
+  all-branches/selected-branch filter. The same branch filter is forwarded to
+  queued report exports. A branch staff hostname ignores a supplied `branch_id`
+  and always returns only its own data.
 - Report export (`ReportExportController`, `useReportExport` hook) — queued like
   every other export (`ReportExportJob`), downloaded from the Exports page.
   Fixed bug (2026-08): export was dropping `limit`/`sort`/`sort_by`/
@@ -139,14 +175,33 @@ Orders from both channels land in the same `orders` table, distinguished by
 
 ## 8. Administration & platform
 
-- **Multi-tenancy** — central API to create tenants (`POST /tenants`), each tenant
-  gets its own database + subdomain; central auth for platform admin.
-- **Users, roles & permissions** — Spatie permissions; role management UI;
-  default-permissions endpoint.
-- **Authentication** — staff login/logout/change-password (Sanctum tokens).
+- **Multi-tenancy** — central API to create tenants (`POST /tenants`) and
+  irreversibly delete them (`DELETE /tenants/{tenantId}` with the tenant domain as
+  confirmation). Each tenant gets its own database + subdomain; deletion removes
+  central tenant records and drops its tenant database through the tenancy pipeline.
+  Central auth is required for both operations.
+- **Company cutover audit** — `branches:cutover-audit` performs a read-only
+  reconciliation of source single-branch tenants against mapped company branches
+  before any Caliber data consolidation is approved.
+- **Company cutover tooling** — dry-run/import/reconcile/activate commands move
+  approved branch stock, customers, POS sales, payments, and sales returns into
+  a company branch exactly once; the VPS procedure is documented in
+  `docs/CALIBER_CUTOVER_RUNBOOK.md`.
+- **Users, roles & permissions** — tenant permissions are defined for every
+  staff-facing resource with view/create/update/delete actions. Staff login and
+  `GET /api/profile` return effective roles and permissions; on branch hosts the
+  left sidebar shows only entries covered by the relevant `*-view` permission.
+  Company-admin navigation remains separate and is not filtered by this branch UI.
+  Roles are managed from the branch sidebar; users can hold one or more roles.
+  Built-in cashier and manager roles provide safe starting presets. Cashiers have
+  POS product lookup permission without catalog-management access. Built-in
+  `super-admin`, `admin`, `manager`, and `cashier` roles are read-only; create a
+  custom role to tailor permissions.
+- **Authentication** — staff login/profile/logout/change-password (Sanctum tokens).
 - **Activity logs** — Spatie activity log on key models, system-logs UI.
-- **Settings** — POS config, website details, email config, payment methods,
-  generic settings CRUD.
+- **Settings** — POS config (invoice message and notification email), website
+  details, email config, payment methods, generic settings CRUD. Configuration
+  edit dialogs preload the selected setting's stored values.
 - **Imports/exports tracking** — `imports`/`exports` tables with statistics and
   status (`ImportStatusEnum`, `ExportStatusEnum`); exports listed per-user on
   the Exports page.

@@ -1,0 +1,22 @@
+info:
+  name: delete tenant
+  type: http
+  seq: 2
+
+http:
+  method: DELETE
+  url: "{{base_url}}/central/tenants/cd947c21-5164-422a-beb9-3e1faa6ee665"
+  body:
+    type: json
+    data: |-
+      {
+          "confirmation": "caliber"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

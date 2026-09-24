@@ -14,7 +14,20 @@ services:
         condition: service_healthy
   queue:
     image: pos-backend
-    command: php artisan queue:work --tries=1 --timeout=600
+    # Keep interactive/background work responsive. Excel exports have their
+    # own worker below because they can legitimately take several minutes.
+    command: php artisan queue:work --queue=default --tries=1 --timeout=600
+    restart: unless-stopped
+    volumes:
+      - ./pos-backend:/var/www
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+  exports:
+    image: pos-backend
+    command: php artisan queue:work --queue=exports --tries=1 --timeout=1800
     restart: unless-stopped
     volumes:
       - ./pos-backend:/var/www
