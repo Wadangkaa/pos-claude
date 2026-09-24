@@ -98,7 +98,8 @@ Orders from both channels land in the same `orders` table, distinguished by
   the home page. A tag selected from the navbar checks its parent category in
   the sidebar. Unchecking that category or clearing filters removes the tag
   selection; a category can include multiple tags, while a single tag stays
-  narrower.
+  narrower. Child-product lookups for category and tag filters use an indexed
+  `products.product_variant_id` relation.
   Public endpoints under `/api/website/*`.
 - **Customer accounts** — register, login (Sanctum `auth:customer` guard on the
   Customer model), profile, logout.
