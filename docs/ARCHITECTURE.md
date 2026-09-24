@@ -224,7 +224,7 @@ chart.js, sonner (toasts), react-to-print.
 |---|---|
 | `routes.tsx` | All POS admin routes (guards: `AuthRoutes`/`GuestRoutes`) + mounts `websiteRoutes` |
 | `pages/*` | One folder per module, typical files: `*List`, `Columns`, `Model` (form modal), `*Details` |
-| `pages/website/` | Entire customer storefront: pages (Home, ProductDetail, Cart, Orders, Login, Register, TagProducts), `router/`, `layouts/WebsiteLayout`, `middlewares/WebsiteEnabledMiddleware`, own hooks/services. TagProducts reuses Home's catalog grid, sidebar filters, and pagination with a `tag_id` filter. |
+| `pages/website/` | Entire customer storefront: pages (Home, ProductDetail, Cart, Orders, Login, Register, TagProducts), `router/`, `layouts/WebsiteLayout`, `middlewares/WebsiteEnabledMiddleware`, own hooks/services. TagProducts reuses Home's catalog grid, sidebar filters, and pagination with a `tag_id` filter; navbar tag links carry their parent `category_id` so the matching sidebar category is checked. |
 | `api/` | Axios service modules (productService, orderService, websiteProductService, websiteOrderService, websiteAuthService, cartService…) |
 | `redux/` | store, slices (authSlice, orderFormSlice, brandSlice), selectors |
 | `components/` | Shared UI: Tables/CustomTable, Orders (billing, split billing, order summary), Products, Discount, Reports, Layout (sidebar/topnav), ui (shadcn-style) |
