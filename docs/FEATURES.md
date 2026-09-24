@@ -166,7 +166,10 @@ Orders from both channels land in the same `orders` table, distinguished by
   lookup, session detail/update.
 - **Cash denominations & currency notes** — NPR note/coin configuration
   (`CurrencyNote`, denomination settings pages).
-- **Expenses** — expense tracking module.
+- **Expenses** — expense tracking with Daily (default) and Overall types and an
+  optional bill image, privately stored per tenant and viewable by signed-in
+  staff. The dashboard shows today's total for Daily expenses only; expenses
+  remain record-only and do not change cash, sales, or stock totals.
 
 ## 6. Procurement & partners
 

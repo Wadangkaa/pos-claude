@@ -40,7 +40,7 @@ dev: pint, larastan, phpunit 11, laravel/boost.
 | `routes/central.php` | central domain, `auth:sanctum` | Platform login, profile, tenant creation/deletion |
 | `routes/tenant.php` | wraps the below in `api` prefix per tenant | Tenant bootstrapping; report routes enforce branch/admin access |
 | `routes/api.php` | `/api`, `auth:sanctum` | The whole POS admin API (products, orders, inventory, cash, settings…) |
-| `routes/admin/report.php` | `/api/report`, `auth:sanctum` + branch access | Reporting endpoints |
+| `routes/admin/report.php` | `/api/report`, `auth:sanctum` + branch access | Reporting endpoints, including today's Daily expense total |
 | `routes/website/guest.php` | `/api/website` public | Catalog: categories, attributes, product-groups (including `tag_id` filtering and raw/discount-adjusted child-product price ranges), products, similar, feature flags |
 | `routes/website/customerAuth.php` | `/api/website/customer` | Customer register/login/profile/logout/orders |
 | `routes/website/cart.php` | `/api/cart`, `auth:customer` | Cart CRUD + checkout |
@@ -187,7 +187,8 @@ failed, including errors raised before the job's `handle()` method can run.
 ### Enums (app/Enums)
 OrderStatusEnum (Success/Pending/Draft/Cancelled), OrderTypeEnum (pos/website),
 WebsiteOrderDeliveryStatusEnum (pending/completed),
-PaymentMethodEnum, DiscountTypeEnum (PERCENTAGE/FIXED/FIXED_PRICE),
+PaymentMethodEnum, ExpenseTypeEnum (daily/overall),
+DiscountTypeEnum (PERCENTAGE/FIXED/FIXED_PRICE),
 StockUpdateTypeEnum (In/Out), StockUpdateReasonEnum, StockAuditEnum,
 CartStatusEnum, CashSessionStatus, CashDenominationStage, BrandStatusEnum,
 CategoryStatusEnum, ProductVariantStatusEnum, Sales/SaleReturnStatusEnum,
@@ -199,6 +200,12 @@ RoleEnum, PermissionEnum, LocationTypeEnum (country/district/city, with
 ### Migrations
 - Central: `database/migrations/` (tenants, domains, users, tokens, features).
 - Tenant: `database/migrations/tenant/` — run with `php artisan tenants:migrate`.
+
+Expenses use `ExpenseTypeEnum` (`daily`/`overall`). The additive expense migration
+defaults existing rows to Daily and adds a private `bill_image_path`; uploaded
+bills are fetched only through authenticated `GET /api/expense/{id}/bill-image`.
+`GET /api/report/total-daily-expenses` sums Daily expenses whose expense date is
+today, independent of sales, cash, or stock accounting.
 
 ### Newer tables NOT in `pos-backend/DATABASE_SCHEMA.md` (doc dated Oct 2025)
 brands, categories (+categories_tags), sales_returns + sale_return_items,
