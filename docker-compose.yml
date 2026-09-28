@@ -36,6 +36,17 @@ services:
         condition: service_healthy
       backend:
         condition: service_started
+  scheduler:
+    image: pos-backend
+    command: php artisan schedule:work
+    restart: unless-stopped
+    volumes:
+      - ./pos-backend:/var/www
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
   frontend:
     build:
       context: ./pos-frontend

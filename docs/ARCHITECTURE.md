@@ -45,7 +45,7 @@ dev: pint, larastan, phpunit 11, laravel/boost.
 | `routes/api.php` | `/api`, `auth:sanctum` | The whole POS admin API (products, orders, inventory, cash, settings…) |
 | `routes/admin/report.php` | `/api/report`, `auth:sanctum` + branch access | Reporting endpoints, including today's Daily expense total |
 | `routes/website/guest.php` | `/api/website` public | Catalog: categories, attributes, product-groups (including `tag_id` filtering and raw/discount-adjusted child-product price ranges), products, similar, feature flags |
-| `routes/website/customerAuth.php` | `/api/website/customer` | Customer register/login/profile/logout/orders |
+| `routes/website/customerAuth.php` | `/api/website/customer` | Customer signup/email verification, login/profile/logout/orders, password change/recovery |
 | `routes/website/cart.php` | `/api/cart`, `auth:customer` | Cart CRUD + checkout |
 | `routes/website/order.php` | `/api/orders`, `auth:customer` | Customer order history |
 | `routes/resource.php` | — | Defines the `Route::apiRoutes()` resource macro used by api.php |
@@ -123,8 +123,11 @@ type = LocationTypeEnum), DeliveryFee (per-city fee, `location_id` FK).
 - `Websites/CartService`, `Websites/WebsiteOrderService` — website cart/checkout;
   `Websites/WebsiteOrderNotificationService` sends customer receipts and configured
   admin order notifications after checkout, plus queued customer emails when
-  website delivery status changes (including the Pending status on acceptance).
-  `WebsiteOrderDeliveryStatusNotification` captures the order code and new status;
+  website delivery status changes. Checkout emails eager-load `orderItems.product`
+  to list the sellable products' SKUs and quantities; both show the saved
+  `orders.total_amount` in NPR.
+  `WebsiteOrderDeliveryStatusNotification` captures the order code and configured
+  label before queueing (the old enum is supported only for existing queued jobs);
   unchanged statuses and customers without a valid email do not dispatch it.
 - `Websites/WebsiteFulfillmentService` — locks branch balances, selects and
   reserves a fulfillment branch for a pending checkout, consumes reservations on
@@ -156,6 +159,9 @@ preventing a slow workbook from being executed twice.
 `TenancyBootstrapped` event, after the tenant database connection is active;
 queued tenant jobs therefore must not query mail settings during
 `TenancyInitialized`.
+The provider restores central mail settings and clears resolved transports when
+tenancy ends and before loading the next tenant, preventing SMTP credentials or
+sender addresses from carrying over between queue jobs.
 The queue-level `JobFailed` listener re-enters the payload's tenant context and
 marks failed `ExportJob`/`ReportExportJob`/`StockAuditExportJob` records as
 failed, including errors raised before the job's `handle()` method can run.
@@ -186,6 +192,32 @@ failed, including errors raised before the job's `handle()` method can run.
   Missing in System, and Missing in Physical result sheets; the finished file
   is listed and downloaded through the shared Exports page.
 - `ImportJob`, `ProcessStockAuditJob`.
+- `SendDailyDashboardReport` — a small default-queue job sends the captured
+  `daily_dashboard_reports.summary` as an in-memory XLSX attachment through
+  `DailyDashboardReportMail`; retries up to three times and records sent/failure
+  state. A locked report row prevents a repeated job from sending an already sent
+  report, and the job verifies its original tenant ID. These system reports use
+  their own table, rather than user-requested exports.
+
+### Daily dashboard scheduler
+
+`SavePosConfigRequest` validates nullable `daily_report_time` (HH:MM) and
+`daily_report_email` as a pair in the existing `settings/pos-config` endpoints.
+`settings.value_json` stores them; saving omitted fields preserves prior values.
+The UI at `/pos/pos-config` shows Nepal time and a separate report recipient.
+`reports:send-daily-dashboard` is registered every minute in `routes/console.php`
+with an overlap lock. It visits active tenants, checks the configured time in
+`Asia/Kathmandu`, captures all-brand rows from `DashboardSummaryService`, and
+creates one tenant `daily_dashboard_reports` row per date before queuing delivery.
+The service also supplies the dashboard's payment-mode, Sales Return, and Daily
+Expenses endpoints, preserving their brand filters. Excel contains numeric NPR
+values with text titles; the four stock/product/supplier/customer counts are excluded.
+
+Docker Compose runs a `scheduler` service with `php artisan schedule:work`,
+alongside the default queue worker. Outside Docker, keep a queue worker running
+and install a cron entry that invokes `php artisan schedule:run` every minute
+from the backend directory. Apply `php artisan tenants:migrate` before enabling
+reports on existing tenants. Clearing both report fields disables future reports.
 
 ### Enums (app/Enums)
 OrderStatusEnum (Success/Pending/Draft/Cancelled), OrderTypeEnum (pos/website),
@@ -224,7 +256,7 @@ order types because expenses are not linked to orders.
 ### Newer tables NOT in `pos-backend/DATABASE_SCHEMA.md` (doc dated Oct 2025)
 brands, categories (+categories_tags), sales_returns + sale_return_items,
 carts + cart_items, images (polymorphic, thumbnail/order), cash_sessions,
-cash_denominations, expenses, stock_audits (+items/results/summaries),
+cash_denominations, expenses, daily_dashboard_reports, stock_audits (+items/results/summaries),
 discounts + discountables, features (central), locations + delivery_fees
 (Jul 2026); plus columns: orders.type,
 orders.split_payments, orders.total_discount_amount, products.brand_id,
@@ -261,6 +293,47 @@ calls target the tenant's backend. Local dev works with `tenant1.localhost`-styl
 hosts. Env: `VITE_DEFAULT_TENANT`.
 
 ### Frontend route map highlights
+The website Navbar uses a MUI account menu with customer initials and name,
+Orders/Logout links, and a `ChangePasswordDialog`. It calls authenticated
+`PUT /api/website/customer/change-password`; `ChangeCustomerPasswordRequest`
+verifies the current password using the customer guard, requires a different
+new password (minimum eight characters), and validates confirmation. The
+controller hashes the new password on the authenticated customer. Checkout
+shows a permanently selected Cash on Delivery radio option; the existing cash
+order pipeline is unchanged.
+Customer recovery uses public, rate-limited `POST
+/api/website/customer/forgot-password` and `POST
+/api/website/customer/reset-password` routes. The `customers` password broker
+uses the active tenant database's `customer_password_reset_tokens` table, separate
+from staff tokens; credentials require `has_login`. Reset tokens are hashed,
+expire after 60 minutes, and are deleted on success along with customer API tokens.
+`CustomerPasswordResetNotification` queues mail using the tenant email settings.
+Its frontend URL is captured before queueing and built from trusted tenant data
+and `config/customer_auth.php`, never the request Origin or Host headers.
+`CUSTOMER_FRONTEND_URL` supports `{domain}` and `{tenant}` placeholders; it defaults
+to `https://{domain}` in production and `http://{tenant}.localhost:3000` locally.
+Set the local port in this variable when using a different frontend port.
+Frontend `/forgot-password` and `/reset-password?token=...&email=...` routes handle
+the flow; shared `PasswordInput`/`PasswordTextField` components add eye toggles.
+
+New website registrations set `customers.email_verification_required = true`
+and clear `email_verified_at`. Login rejects pending verification with a 403
+response that sends the frontend to `/verify-email`. Existing accounts keep the
+flag's default `false`; their email is not falsely marked verified.
+`CustomerEmailVerificationService` queues `CustomerEmailVerificationNotification`
+using the same trusted frontend URL configuration as password recovery. Links
+contain a relative signed `GET /api/website/customer/verify-email/{id}/{hash}` URL
+with a 60-minute expiry and signed tenant ID; verification checks the current
+tenant and email hash before recording `email_verified_at`. Public `POST
+/api/website/customer/verification-email` resends only for pending login-enabled
+accounts, with a 60-second per-customer cooldown and generic confirmation.
+Signup, resend, and verification have separate rate-limit buckets. The frontend
+only follows verification paths matching this API route.
+
+The expense modal uses `src/pages/expense/expenseSchema.js` to accept numeric
+amounts from saved records and strings from the number input. It converts valid
+amounts to strings for multipart submission, including unchanged edits and resets.
+
 Customer storefront: `/` home, `/product/:sku`, `/tag/:id`, `/cart`,
 `/orders`, `/orders/:id`, `/login`, `/register`. The former `/website/*`
 paths redirect client-side to their root-level equivalents, preserving queries.
@@ -269,13 +342,66 @@ Staff: `/pos` redirects to `/pos/dashboard`; other pages include
 `/pos/products`, `/pos/stock-audit`, `/pos/exports`, `/pos/sales-report`,
 `/pos/website-config`, and `/pos/login`. Every staff route is under `/pos`.
 
+### Storefront footer configuration
+
+`GET /api/settings/website-details` exposes public branding plus nullable
+`footer_description`, `facebook_url`, `instagram_url`, `tiktok_url`, `x_url`, and
+`map_embed_url`. Staff save these through the existing authenticated
+`POST /api/settings/website-details` endpoint and `SaveWebsiteDetailsRequest`.
+Updates merge only supplied validated fields into the existing tenant
+`settings.value_json` for `website_details`, preserving uploaded branding and
+omitted footer values. No migration is needed. The request validates social URL
+protocols and extracts an HTTPS `src` from pasted iframe HTML; only that URL is
+stored. `WebsiteFooter.tsx` renders plain text, external links, and a titled,
+sandboxed, lazy-loaded iframe inside `WebsiteLayout`, exclusively for storefront
+routes. The admin footer form saves separately and updates the shared
+`website-config` query cache.
+
 ### Website-order fulfilment
 
 Staff manage website orders through `POST /api/order/{id}/confirm`,
-`POST /api/order/{id}/cancel`, and `PUT /api/order/{id}/delivery-status`.
-Cancellation is allowed only while a website order remains pending. Confirmation
-sets `orders.delivery_status` to `pending`; later delivery updates (`pending` or
-`completed`) are tracking-only and do not create stock or payment records.
+`POST /api/order/{id}/cancel`, `PUT /api/order/{id}/delivery-status`, and
+`PUT /api/order/{id}/payment-status`.
+`PUT /api/order/{id}/notes` uses `UpdateWebsiteOrderNotesRequest` and accepts
+staff-only, nullable text up to 5,000 characters. It updates
+`orders.custom_fields.admin_notes` while preserving other custom fields;
+`OrderResource` exposes `admin_notes` only to staff, and the admin details page
+provides a Notes textarea and Save Notes button. No migration is needed.
+`ProductDetail.tsx` opens its existing gallery images in a full-screen MUI Dialog
+from the main desktop/mobile photo. The dialog keeps its own selected image index,
+supports cyclic buttons and arrow keys, and provides Escape/close controls,
+focus management, and background scroll locking.
+Cancellation is allowed only while a website order remains pending. Checkout
+sets delivery to Pending, using a matching `settings.key = sales-status` entry
+when available. Confirmation initializes missing historical delivery status but
+preserves an existing selection. `orders.delivery_status_id` is a nullable FK to
+that setting; `delivery_status` retains a label snapshot and supports legacy
+`pending`/`completed` values. The `Order.deliveryStatus` relation is eager-loaded,
+and both order resources expose its current label with the snapshot as fallback.
+The tenant migration links matching historical labels and defaults unset website
+delivery statuses to Pending without changing POS orders.
+`UpdateWebsiteOrderDeliveryStatusRequest` accepts a Sales Status ID (or null to
+return to Pending), rejects other setting keys, and requires staff authentication.
+Only accepted website orders can be updated; row locking prevents duplicate
+change notifications. Updates are tracking-only and do not create stock or payment
+records. The admin dropdown loads all pages of configured Sales Status entries;
+the customer order history shows the same label. Removing a setting nulls its FK
+while preserving the saved label. No ordering of the configured statuses is assumed.
+`UpdateWebsiteOrderPaymentStatusRequest` validates an active `payment-status`
+setting ID (or null to return to Pending). The staff-only endpoint locks an accepted
+website order and merges the ID and label into `orders.custom_fields`, preserving
+other metadata and payment/stock records. Checkout selects configured Pending when
+available, otherwise keeps the Pending label. `Order.paymentStatusId` exposes the
+existing JSON ID as an accessor for the eager-loaded `paymentStatus` relation;
+both resources expose the live configured label with its saved snapshot as fallback.
+No migration is needed. `WebsiteOrderStatusPanel.jsx` loads all configuration pages
+for both dropdowns and saves each status independently.
+
+Sales barcode lookups in `Productable.jsx` prepare a reusable audio element during
+the scan and call `utilities/barcodeErrorSound.js` on failed or empty results.
+The helper restarts playback for every error and preserves the visual error if
+playback is unavailable. Vite bundles `src/assets/audio/error.wav` from its import
+URL; the audio file was moved from the workspace root.
 `POST /api/export/order` produces only POS-channel sales; Website Orders calls
 `POST /api/export/website-orders-export`, backed by `WebsiteOrderExportController`,
 to create a workbook limited to website-channel orders.
@@ -297,8 +423,13 @@ to create a workbook limited to website-channel orders.
   quantities during an atomically locked checkout, and confirmation deducts that
   reserved inventory. Checkout requires a deliverable country → district → city
   selection and accepts an optional `delivery_landmark`; staff order details receive
-  the country, district, city, and landmark as `delivery_address`. Website product
-  and cart responses expose `available_stock`
+  the country, district, city, and landmark as `delivery_address`. Website
+  checkout validates contact fields through `WebsiteCheckoutRequest`: required
+  `delivery_phone` and optional `delivery_alternative_phone`. Both are stored on
+  `orders`, returned by `OrderResource`, and shown in staff website-order details
+  separately from the customer profile. Spaces, parentheses, and hyphens are
+  removed before validating 7–15 digits with an optional leading `+`.
+  Website product and cart responses expose `available_stock`
   (physical stock less Pending website reservations) for the storefront quantity
   controls. The POS Sales view filters to `type = pos`.
 - **Branch host isolation:** a `tenant_branch_domains` record maps the full browser

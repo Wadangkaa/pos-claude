@@ -49,6 +49,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   country → district → city cascade. Customers can also provide an optional
   delivery landmark/detailed location; it is saved on `orders.delivery_landmark`
   and shown with the complete delivery address in staff website-order details.
+  Checkout also requires a delivery phone number and accepts an optional
+  alternative phone number. Both are saved on the order and shown in the
+  Delivery Contact section of staff website-order details.
 - **Product import/export** — Excel import (products, price updates, orders,
   purchases; failed-row download via signed URL). Excel export per module runs
   as a **queued background job** (`ExportJob`): `POST /api/export/{uri}` creates
@@ -70,6 +73,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   item-level % discount, order-level % discount, final flat discount, VAT 13%, and
   a selectable sale date and time
   (Nepal, inclusive: total × 13/113).
+- **Barcode failure sound** — Sales plays the bundled error audio whenever a
+  barcode lookup fails or returns no product, alongside the existing error message.
+  Each failed scan restarts the sound; successful scans remain silent.
 - **Sales list filters** — filter POS sales by payment status, sales status, or
   payment method (including split/multiple-method payments).
 - **Payments** — single method, or **split payments** across methods; cash received /
@@ -105,6 +111,10 @@ Orders from both channels land in the same `orders` table, distinguished by
   Public endpoints under `/api/website/*`.
 - **Customer accounts** — register, login (Sanctum `auth:customer` guard on the
   Customer model), profile, logout.
+- **Signup email verification** — new website accounts receive a store email
+  with a verification link valid for 60 minutes and must verify before signing
+  in. The verification page supports resending links, with a 60-second cooldown
+  and rate limits. Existing accounts retain access without being marked verified.
 - **Cart** — add/remove/update-quantity/clear, then **checkout** → creates a website
   order (`Cart`, `CartItem`, `CartStatusEnum`, `Services/Websites/CartService`).
   Checkout locks branch stock, automatically assigns the first branch that can
@@ -113,25 +123,62 @@ Orders from both channels land in the same `orders` table, distinguished by
   host, an administrator can move a pending order to another sufficiently stocked
   branch; the override is retained in the order fulfillment audit data.
 - **Customer order history** — `/api/orders` for the logged-in customer.
+- **Customer account menu** — logged-in navbar uses a round initials button
+  (user icon fallback). Its menu shows the customer name, Orders, Change Password,
+  and Logout. Password changes require the current password, a different new
+  password of at least eight characters, and matching confirmation.
+- **Checkout payment** — Cash on Delivery (COD) is the sole payment option and
+  is always selected, with a reminder to pay cash on delivery.
+- **Customer password recovery** — login links to Forgot Password; the customer
+  receives a reset email for that store. Links expire after 60 minutes and can
+  be used once; a successful reset revokes previous customer sessions. Unknown
+  or non-login accounts receive the same confirmation, and requests are rate limited.
+  Password fields in login, registration, change password, and reset password
+  include show/hide eye buttons.
+- **Product image gallery** — clicking the main product photo opens a full-screen
+  gallery on desktop and mobile, with next/previous buttons, keyboard arrows,
+  an image counter, and a close button (Escape also closes it).
+- **Website order Notes** — staff can save or clear Notes from website-order
+  details. Notes are internal, persist on the order, and are omitted from customer
+  order responses. Saving notes preserves the order status, totals, and other data.
 - Cart items and order items show the product's own thumbnail/first image, falling
   back to its product group's images (`Product::displayThumbnail()`).
 - **Website order management (POS side)** — staff list contains every website-channel
   order (Pending/Accepted/Cancelled status filter), website order details, and
   fulfilment flow. Staff can cancel a pending website order, which releases its
   reservation without changing physical stock or payments. Accepting updates the
-  existing website order; it never creates or converts it into a POS sale, deducts
-  the reserved stock, and starts a separate delivery status at Pending. Staff can
-  later mark delivery Completed; each actual delivery-status change emails the
-  customer when they have a valid email address, without duplicating emails for
+  existing website order and deducts the reserved stock; it never creates or
+  converts it into a POS sale. Website checkout defaults delivery status to Pending.
+  Delivery options come from Configuration → Sales Status, including newly
+  added entries. After accepting an order, staff choose any option in the
+  Delivery Status dropdown and click its Save button; no status sequence
+  is assumed. If Pending is not configured, it remains available as the default.
+  Payment Status uses Configuration → Payment Status, defaults to Pending, and
+  has its own dropdown and Save button after acceptance. A compact status toolbar
+  puts both dropdowns in one row on desktop and stacks them on mobile. Save buttons
+  and the previously saved value appear only for changed selections; small
+  configuration icons link to each status list. Payment status appears in the
+  staff website-order list and customer order history. Changing this tracking
+  status preserves notes, totals, stock, and payment records.
+  The customer order history also shows delivery status. Each actual delivery change
+  emails the customer when they have a valid email address, without duplicates for
   repeated selections. Delivery status is tracking-only and has no stock or
   payment effect. Storefront availability and quantity controls show physical
   stock less pending reservations. Checkout emails the customer and sends the admin
-  alert to the POS-configured notification email. The POS Sales list contains
+  alert to the POS-configured notification email. Both emails list each product's
+  SKU and quantity, and show the saved order total in NPR, including delivery
+  charges and discounts. The POS Sales list contains
   POS-channel orders only. Website Orders has its own queued export, with Orders
   and Order Items worksheets limited to the website channel.
 - **Website settings / feature flag** — website can be enabled/disabled per tenant
   (`FeatureKey::WEBSITE`); disabled state page; website details (name/branding)
   saved in settings and exposed publicly; `WebsiteConfig` admin page.
+- **Storefront footer** — Website Configuration has a separate footer form for
+  a description, optional Facebook/Instagram/TikTok/X links, and an optional map
+  iframe or HTTPS embed URL. The responsive storefront footer uses the configured
+  store name/logo, description, social links, map, shopping links, and copyright.
+  Blank social links/maps stay hidden; footer and branding save independently.
+  Footer settings are tenant-specific and do not alter the POS footer.
 
 ## 4. Inventory
 
@@ -172,6 +219,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   optional bill image, privately stored per tenant and viewable by signed-in
   staff. The dashboard shows today's total for Daily expenses only; expenses
   remain record-only and do not change cash, sales, or stock totals.
+  Editing and saving an unchanged expense accepts the API's numeric amount;
+  amount validation also accepts typed numeric strings and zero, while rejecting
+  blank, negative, and nonnumeric values.
 
 ## 6. Procurement & partners
 
@@ -207,6 +257,14 @@ Orders from both channels land in the same `orders` table, distinguished by
 
 ## 8. Administration & platform
 
+- **Daily dashboard email** — POS Configuration has Daily Report Time (Nepal
+  time) and Daily Report Email. Setting both enables a daily Excel attachment;
+  clearing both disables it. The report contains Title/Value (NPR) rows for each
+  payment-mode total, Sales Return, and Daily Expenses across all brands, using
+  the same calculations as the dashboard. Total Stock, Products, Suppliers, and
+  Customers are excluded. Totals are captured at the scheduled minute, retained
+  for queued delivery, and protected against repeated sends for the same date.
+  Mail failures retry up to three times; reports use the tenant's email settings.
 - **Multi-tenancy** — central API to create tenants (`POST /tenants`) and
   irreversibly delete them (`DELETE /tenants/{tenantId}` with the tenant domain as
   confirmation). Each tenant gets its own database + subdomain; deletion removes
