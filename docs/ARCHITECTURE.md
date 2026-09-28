@@ -261,7 +261,8 @@ with an overlap lock. It visits active tenants, checks the configured time in
 `Asia/Kathmandu`, captures all-brand rows from `DashboardSummaryService`, and
 creates one tenant `daily_dashboard_reports` row per date before queuing delivery.
 The service also supplies the dashboard's payment-mode, Sales Return, and Daily
-Expenses endpoints, preserving their brand filters. Excel contains numeric NPR
+Expenses endpoints, preserving their brand and selected/forced branch filters.
+Scheduled reports use company-wide totals. Excel contains numeric NPR
 values with text titles; the four stock/product/supplier/customer counts are excluded.
 
 Docker Compose runs a `scheduler` service with `php artisan schedule:work`,
@@ -441,6 +442,8 @@ staff-only, nullable text up to 5,000 characters. It updates
 `orders.custom_fields.admin_notes` while preserving other custom fields;
 `OrderResource` exposes `admin_notes` only to staff, and the admin details page
 provides a Notes textarea and Save Notes button. No migration is needed.
+The notes, delivery-status, and payment-status actions require
+`sales-orders-update` through `EnforceTenantPermission`.
 `ProductDetail.tsx` opens its existing gallery images in a full-screen MUI Dialog
 from the main desktop/mobile photo. The dialog keeps its own selected image index,
 supports cyclic buttons and arrow keys, and provides Escape/close controls,
@@ -469,7 +472,8 @@ available, otherwise keeps the Pending label. `Order.paymentStatusId` exposes th
 existing JSON ID as an accessor for the eager-loaded `paymentStatus` relation;
 both resources expose the live configured label with its saved snapshot as fallback.
 No migration is needed. `WebsiteOrderStatusPanel.jsx` loads all configuration pages
-for both dropdowns and saves each status independently.
+for both dropdowns and saves each status independently in a compact toolbar;
+Save buttons appear only for changed selections.
 
 Sales barcode lookups in `Productable.jsx` prepare a reusable audio element during
 the scan and call `utilities/barcodeErrorSound.js` on failed or empty results.

@@ -1,7 +1,7 @@
 # ANT POS — Feature Inventory
 
 > Update this file whenever a feature is added, changed, or removed.
-> Last updated: 2026-09-25
+> Last updated: 2026-09-29
 
 The system has two sales channels sharing one backend. Each branch owns its catalog:
 1. **POS** — staff-facing admin/cashier app at `/pos/dashboard` (tenant subdomain,
@@ -299,7 +299,8 @@ Orders from both channels land in the same `orders` table, distinguished by
   time) and Daily Report Email. Setting both enables a daily Excel attachment;
   clearing both disables it. The report contains Title/Value (NPR) rows for each
   payment-mode total, Sales Return, and Daily Expenses across all brands, using
-  the same calculations as the dashboard. Total Stock, Products, Suppliers, and
+  the same calculations as the dashboard. Dashboard branch filters narrow the
+  on-screen totals; the scheduled email contains company-wide totals. Total Stock, Products, Suppliers, and
   Customers are excluded. Totals are captured at the scheduled minute, retained
   for queued delivery, and protected against repeated sends for the same date.
   Mail failures retry up to three times; reports use the tenant's email settings.
