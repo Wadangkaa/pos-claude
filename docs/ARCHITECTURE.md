@@ -29,6 +29,15 @@
   Backend API paths are unchanged.
 - Timezone +05:45 (Nepal), VAT 13%, Nepali-date support.
 
+## Local Docker development
+
+`docker compose up -d` starts the frontend, backend, database, and queue workers.
+The frontend host port defaults to `3000`; set `POS_FRONTEND_PORT=3001` (or another
+free port) in the workspace root `.env` to avoid conflicts with other projects.
+Use `.env.example` as a starting point. Vite still listens on port `3000` inside
+the container; access the frontend using the configured host port, including
+tenant/branch localhost hostnames. The backend remains on port `8000`.
+
 ## Backend (`pos-backend/`) — Laravel 11, PHP 8.3
 
 ### Key packages
@@ -54,6 +63,15 @@ dev: pint, larastan, phpunit 11, laravel/boost.
 `routes/api.php` also exposes `PUT /api/order/{id}/fulfillment-branch`. It is
 available only to `admin`/`super-admin` users on an admin hostname and moves a
 pending website order's reservation to a sufficiently stocked branch.
+It also exposes staff CRUD at `/api/staff` and daily attendance reads and marks
+at `/api/staff-attendance` and `/api/staff-attendance/{staffId}/{date}`. Staff
+records are separate from authenticated users. These routes require a branch
+hostname and use its forced branch; the company admin hostname is forbidden.
+Branch incentive plans are at `GET/POST /api/staff-incentive-plans` and
+`PUT /api/staff-incentive-plans/{id}`; calculated daily and monthly points are
+at `GET /api/staff-rewards/daily?date=YYYY-MM-DD` and
+`GET /api/staff-rewards/monthly?month=YYYY-MM`. These routes also require a
+branch hostname and the `hr-incentives-*` permissions.
 
 Tenant authorization definitions live in `config/permissions.php`; names use
 `{module}-{resource}-{action}`. `PermissionSeeder` is called for new tenants and
@@ -70,6 +88,18 @@ from `inventory-products-view`, which controls catalog navigation. User CRUD
 accepts `role_names` and synchronizes those roles through Spatie.
 The Roles API and table prevent the built-in presets from being edited or deleted;
 custom roles retain the editable permission matrix.
+`EnforceTenantPermission` runs after Sanctum authentication and branch assignment
+for staff API and report routes. It maps each action to its configured permission
+and denies unmapped actions. POS product reads accept either the catalog view or
+POS lookup permission; catalog writes require their own action permission.
+Company summary and branch mutations require the admin hostname, and the
+summary also requires an administrator role. Role editors cannot grant a
+permission they lack; user editors cannot assign administrator roles or roles
+with permissions they lack. Branch-host user management sees only users assigned
+to that branch. Deleting a user assigned to multiple branches requires the
+company admin portal. Roles remain tenant-wide across a user's assigned branches.
+Queued catalog and report exports carry the hostname's branch context into the
+worker, and a branch-host report export ignores a supplied foreign `branch_id`.
 
 `TenantController::store()` creates both the website and `admin.` hostname
 records in the central `tenant_branch_domains` table. The tenant seeder creates
@@ -111,7 +141,7 @@ parent ProductVariant. Both levels have tags/attributes/images pivots
 
 ### Models (app/Models)
 Product, ProductVariant, Attribute, Tag, Category, Brand, Supplier, Branch,
-Customer, Order, OrderItems, Payment, Purchase, Productable, StockAdjustment,
+Customer, StaffMember, StaffAttendance, Order, OrderItems, Payment, Purchase, Productable, StockAdjustment,
 InventoryStockTransaction, BranchProductStock, StockTransfer, StockAudit(+Item/Result/Summary), SalesReturn,
 SaleReturnItem, Cart, CartItem, CashSession, CashDenomination, Discount, Expense,
 Image, Setting, Feature, Import, Exports, CustomerReturns (footfall), ActivityLog,
@@ -136,6 +166,25 @@ type = LocationTypeEnum), DeliveryFee (per-city fee, `location_id` FK).
   confirmable and cancellable.
 - `BranchContext` — holds the tenant-domain-selected forced branch or portal type;
   `ScopesToBranch` applies that branch to Eloquent operational models.
+- `CatalogBranch` and `BelongsToCatalogBranch` — assign and scope Products,
+  ProductVariants, Tags, Categories, Attributes, and Carts to a branch. Attribute
+  name rows in `settings` are scoped by branch while other settings remain shared. On the
+  company admin host, catalog writes require `branch_id` when more than one
+  branch exists. Product SKU uniqueness is `(branch_id, sku)`; the internal
+  product code remains tenant-wide. The public website on a branch hostname
+  uses that branch, and the company website defaults to the oldest branch.
+  Customers have no branch scope, while their carts do.
+- `BelongsToOrderBranch` scopes `Payment` and `OrderItems` reads, updates, and
+  deletes through their parent order on a branch hostname. Their request rules
+  also reject a foreign `order_id` on create and update; direct order-item
+  requests validate the sellable `product_id` in the active branch.
+  `OrderItems::product`
+  and `products` deliberately bypass only the catalog branch read scope so
+  historical order lines remain readable after their product moves to Main;
+  direct catalog queries and writes remain branch scoped. Attribute requests
+  require an attribute-name setting from the owning catalog branch. The
+  low-quantity report uses an optional balance join and treats a missing
+  branch balance as zero while filtering products by branch.
 - `BranchStockService`, `StockTransactionService`, `ProductStockService`, `UpdateStockAdjustmentService`,
   `ProductableService` — inventory movements (always go through these).
 - `CashDemoninationService` (sic), `FeatureService`,
@@ -145,8 +194,8 @@ type = LocationTypeEnum), DeliveryFee (per-city fee, `location_id` FK).
 
 `branches:cutover-audit {target-tenant-id} --source={source-tenant-id}:{target-branch-code}`
 is a read-only Artisan command for the Caliber consolidation. It initializes
-each tenant in turn, compares source catalog SKUs and normalized customer phones
-with the target, and records source sales/return totals alongside the target
+each tenant in turn, compares source catalog SKUs with the target branch's SKUs
+and normalized customer phones with the tenant, and records source sales/return totals alongside the target
 branch baseline. It intentionally has no write mode: a data import must be
 reviewed and authorized after the audit report reconciles.
 
@@ -267,7 +316,29 @@ Branch architecture additions (Sep 2026): central `tenant_branch_domains`; tenan
 `branches`, `branch_user`, `branch_product_stocks`, `stock_transfers`, and
 `stock_transfer_items`; `branch_id` on operational documents and inventory ledger;
 and `branch_cutovers`, the idempotency and reconciliation record for an approved
-single-branch-tenant import.
+single-branch-tenant import. The Sep 25 catalog migration adds `branch_id` to
+products, product_variants, tags, categories, attributes, carts, and attribute
+name rows in settings. It assigns
+existing catalog data to the oldest branch, moves current stock there, and
+leaves other branch catalogs empty. Historical order and stock ledger references
+are retained. Original balances are captured in `branch_catalog_stock_backups`
+before the live balances change. Transfers resolve the destination product by SKU.
+The HR migration adds tenant `staff_members` and `staff_attendances`, each with
+`branch_id`; attendance has a unique staff/date key and daily present/absent
+status. It also seeds `hr-staff_members-*` and `hr-attendance-*` permissions.
+Existing manager roles receive these HR permissions; cashier roles do not.
+The permission middleware additionally requires a branch hostname for every HR
+action, so company administrators cannot use HR from the admin portal.
+The Sep 26 incentive migration adds `staff_incentive_plans` (one plan per
+branch/effective date) and child `staff_incentive_tiers` (nonoverlapping,
+lower-inclusive/upper-exclusive sales ranges and integer points). It seeds
+`hr-incentives-view/create/update` and grants them to managers. Plan history
+is effective-dated; plans from before today cannot be edited. The
+`StaffIncentiveService` calculates daily points using the same payment and
+sales-return dates as `ReportController::dailySalesReport`, scoped to the
+hostname branch. It divides each day's integer award into 10,000-unit point
+fractions among present staff and aggregates these live calculations by month.
+There is no payroll money conversion or stored point ledger yet.
 
 ## Frontend (`pos-frontend/`) — React 18 + Vite
 
@@ -342,7 +413,8 @@ paths redirect client-side to their root-level equivalents, preserving queries.
 Staff: `/pos` redirects to `/pos/dashboard`; other pages include
 `/pos/sales`, `/pos/orders`, `/pos/sales-return`, `/pos/website-orders`,
 `/pos/products`, `/pos/stock-audit`, `/pos/exports`, `/pos/sales-report`,
-`/pos/website-config`, and `/pos/login`. Every staff route is under `/pos`.
+`/pos/staff`, `/pos/attendance`, `/pos/incentives`, `/pos/website-config`, and `/pos/login`. Every
+staff route is under `/pos`.
 
 ### Storefront footer configuration
 
@@ -437,7 +509,8 @@ to create a workbook limited to website-channel orders.
 - **Branch host isolation:** a `tenant_branch_domains` record maps the full browser
   hostname to the tenant, portal, and optional forced branch. A forced branch wins
   over a request `branch_id`; company administrators use the `admin.` host for
-  consolidated and selected-branch dashboards/reports.
+  consolidated and selected-branch dashboards/reports. The public website on
+  each branch hostname lists only that branch's catalog.
 
 ## Testing & quality
 

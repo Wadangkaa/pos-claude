@@ -1,9 +1,9 @@
 # ANT POS — Feature Inventory
 
 > Update this file whenever a feature is added, changed, or removed.
-> Last updated: 2026-09-24
+> Last updated: 2026-09-25
 
-The system has two sales channels sharing one backend and one product catalog:
+The system has two sales channels sharing one backend. Each branch owns its catalog:
 1. **POS** — staff-facing admin/cashier app at `/pos/dashboard` (tenant subdomain,
    staff login at `/pos/login`)
 2. **Website** — customer-facing e-commerce storefront selling the same products
@@ -22,13 +22,17 @@ Orders from both channels land in the same `orders` table, distinguished by
   auto-calc, stock, weight-based flag, description, images with thumbnail +
   ordering, supplier, brand). Auto code `PROD####`. Activity-logged.
   ⚠️ See CLAUDE.md: Product is the child/sellable; ProductVariant is the parent group.
+  Products, parent groups, tags, categories, and attributes are owned by one
+  branch. Branch hostnames show only their own catalog; SKUs are unique within
+  a branch, so two branches may use the same SKU. Customers remain shared.
 - **Product Variants ("product groups")** — parent grouping of sibling products by
   article number (SKU prefix). Creating/editing a variant bulk-creates its child
   products; updating also syncs name/sell_price of existing child products
   (matched by SKU, only within the same variant). Has status
   (`ProductVariantStatusEnum`), images, tags, attributes.
 - **Attributes** — key/value characteristics (Size, Color…) attachable to both
-  products and variants; attribute-name management page.
+  products and variants; attribute-name management page. Attribute names in
+  `settings` are branch owned; other settings remain tenant wide.
 - **Tags** — labels on products/variants/categories; used for website filtering and
   "most tag" reporting.
 - **Categories** — with tag assignment (`categories_tags`); drives website navbar.
@@ -64,8 +68,7 @@ Orders from both channels land in the same `orders` table, distinguished by
   POS Sales exports contain two worksheets: **Orders** (one row per sale, including
   the overall order discount, return count, cumulative return total, and net
   sales after returns) and **Order Items** (one row per sold product).
-  On the company admin host, product details additionally show every branch's
-  physical, reserved, and available balance alongside company totals.
+  Product details show the owning branch's physical, reserved, and available balance.
 
 ## 2. Sales (POS)
 
@@ -83,6 +86,8 @@ Orders from both channels land in the same `orders` table, distinguished by
 - **Draft orders** — save draft, update draft, confirm later (`/order-draft`,
   `/order/{id}/confirm`).
 - **Invoices** — printable invoice view (react-to-print), Nepali date on orders.
+  The receipt header uses the sale's branch name, branding, phone, location,
+  and PAN details.
 - **Sales returns** — return items from an order (`sales_returns`,
   `sale_return_items`, `SaleReturnStatusEnum`), restocks via stock transactions.
 - **Discount engine** — `Discount` with types PERCENTAGE / FIXED / FIXED_PRICE,
@@ -117,12 +122,12 @@ Orders from both channels land in the same `orders` table, distinguished by
   and rate limits. Existing accounts retain access without being marked verified.
 - **Cart** — add/remove/update-quantity/clear, then **checkout** → creates a website
   order (`Cart`, `CartItem`, `CartStatusEnum`, `Services/Websites/CartService`).
-  Checkout locks branch stock, automatically assigns the first branch that can
-  fulfill every cart item, and records a pending reservation there. Confirmation
+  Each branch hostname has its own cart and storefront catalog. Checkout locks
+  stock in that branch and records a pending reservation there. Confirmation
   consumes that reservation and deducts the same branch; cancellation releases
   the reservation without deducting stock. On the company admin host, an
-  administrator can move a pending order to another sufficiently stocked
-  branch; the override is retained in the order fulfillment audit data.
+  administrator can move a legacy shared-catalog order to another sufficiently
+  stocked branch; branch-owned products stay with their owning branch.
 - **Customer order history** — `/api/orders` for the logged-in customer.
 - **Customer account menu** — logged-in navbar uses a round initials button
   (user icon fallback). Its menu shows the customer name, Orders, Change Password,
@@ -170,7 +175,8 @@ Orders from both channels land in the same `orders` table, distinguished by
   SKU and quantity, and show the saved order total in NPR, including delivery
   charges and discounts. The POS Sales list contains
   POS-channel orders only. Website Orders has its own queued export, with Orders
-  and Order Items worksheets limited to the website channel.
+  and Order Items worksheets limited to the website channel. The Website Orders
+  navigation tab is shown on branch portals, not the company admin portal.
 - **Website settings / feature flag** — website can be enabled/disabled per tenant
   (`FeatureKey::WEBSITE`); disabled state page; website details (name/branding)
   saved in settings and exposed publicly; `WebsiteConfig` admin page.
@@ -200,14 +206,25 @@ Orders from both channels land in the same `orders` table, distinguished by
 - **Inventory configuration** page.
 - **Branches and transfers** — one company tenant can operate multiple branches.
   A staff hostname fixes the active branch and its inventory balance
-  (`branch_product_stocks`); stock transfers are sent then received between
-  branches without changing company-wide stock. The company admin hostname can
+  (`branch_product_stocks`); transfers between branch-owned products match the
+  destination branch's separate product by SKU. Dashboard stock totals and stock
+  transaction totals display whole units. The company admin hostname can
   view consolidated or selected-branch reporting.
   New tenant provisioning creates `Main`, an admin hostname, and a super-admin
   tenant user; branches created from the company admin portal automatically get
   their own hostname mapping and creator assignment. Company admins can manage
-  the shared Products/Product Variants catalog and create staff users with one
-  or more branch assignments from the admin host.
+  staff users with one or more branch assignments from the admin host. Branch
+  staff manage their own catalog; administrators see all customers and reports
+  across all branches. Existing catalog rows migrate to the oldest branch;
+  other branches start with empty catalogs and their live stock is consolidated
+  into that branch. Outstanding reservations outside Main and sent transfers
+  must be cleared before migration. The original branch balances are saved in
+  `branch_catalog_stock_backups` for reconciliation. Historical orders in other
+  branches still show their original product details, while product catalog
+  endpoints stay branch scoped. Payments and order items can be viewed or changed
+  only through orders in the active branch. Branch managers cannot delete a user
+  assigned to multiple branches, and attribute names must belong to the active
+  catalog branch.
 
 ## 5. Cash management
 
@@ -233,6 +250,25 @@ Orders from both channels land in the same `orders` table, distinguished by
 
 ## 7. Reporting
 
+- **HR staff and attendance** — `/pos/staff` registers branch-owned staff members
+  without creating POS login accounts. Staff records can be edited, made
+  inactive, or archived while retaining their attendance history. At
+  `/pos/attendance`, authorized users mark each active staff member present or
+  absent for a selected date; unmarked staff are counted separately. HR is
+  available only from individual branch hostnames, each showing its own roster
+  and counts. The company admin portal has no HR access.
+- **Branch staff incentives** — `/pos/incentives` lets a branch administrator or
+  manager set effective-dated daily sales ranges and point awards. A day's
+  branch net sales uses paid amounts minus sales returns, matching the Daily
+  Sales report. A matching range's points are split among staff marked present
+  that day, to four decimal places, with any rounding remainder distributed by
+  staff ID. The page shows daily awards and monthly point totals. An unmatched
+  range earns no points; points with no present staff remain unallocated.
+  Historical offer plans are locked once their effective date has passed.
+  Point balances are recalculated from sales and attendance; payroll conversion
+  and money values are not set yet. Incentives are unavailable on the company
+  admin portal.
+
 - Sales dashboard, product dashboard, daily sales, weekly sales, most-sold-tag
   report (routes in `routes/admin/report.php`, prefix `/api/report`).
 - Daily, weekly, monthly, and yearly sales reports have an All/POS/Website order
@@ -247,7 +283,8 @@ Orders from both channels land in the same `orders` table, distinguished by
 - On an `admin.` company hostname, Sales and Product reports include an
   all-branches/selected-branch filter. The same branch filter is forwarded to
   queued report exports. A branch staff hostname ignores a supplied `branch_id`
-  and always returns only its own data.
+  and always returns only its own data. Low-quantity reports include branch
+  products with no stock-balance row as zero quantity.
 - Report export (`ReportExportController`, `useReportExport` hook) — queued like
   every other export (`ReportExportJob`), downloaded from the Exports page.
   Fixed bug (2026-08): export was dropping `limit`/`sort`/`sort_by`/
@@ -287,7 +324,12 @@ Orders from both channels land in the same `orders` table, distinguished by
   Built-in cashier and manager roles provide safe starting presets. Cashiers have
   POS product lookup permission without catalog-management access. Built-in
   `super-admin`, `admin`, `manager`, and `cashier` roles are read-only; create a
-  custom role to tailor permissions.
+  custom role to tailor permissions. Staff API actions enforce these permissions
+  on the server, including reports, imports, exports, catalog edits, and user
+  management. A cashier can search products for POS sales without catalog edit
+  rights. Company summary and branch creation require the admin hostname.
+  Branch-host user management is limited to that branch; roles apply across all
+  branches assigned to the user. Queued exports retain the requesting branch.
 - **Authentication** — staff login/profile/logout/change-password (Sanctum tokens).
 - **Activity logs** — Spatie activity log on key models, system-logs UI.
 - **Settings** — POS config (invoice message and notification email), website
