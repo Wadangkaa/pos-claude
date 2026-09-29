@@ -1,0 +1,100 @@
+# Sidebar Role Regression Checklist
+
+## Purpose
+
+Use this checklist after sidebar, route, permission, or role changes. It verifies that every sidebar entry visible to a role opens its intended route and keeps the user authenticated.
+
+## Test environment
+
+- Branch: `qa/sidebar-role-regression`
+- Tenant: `caliber.localhost`
+- Data policy: use the existing tenant database. Git branches do not create a database copy, so the same customer records are available on every branch.
+- Test accounts: use an existing tenant **admin** and **cashier** account. Do not record credentials in this file.
+
+## Pass criteria
+
+Mark an entry complete only when it was opened from the sidebar and:
+
+1. the browser remains authenticated;
+2. the URL matches the sidebar target; and
+3. the route renders without the application error screen.
+
+An entry hidden from a role is a successful permission check, not a failed navigation check.
+
+## Run log
+
+| Run | Branch | Tenant | Customer data shared | Admin result | Cashier result | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-29 | `qa/sidebar-role-regression` | `caliber.localhost` | Confirmed (146 customers) | ✅ 41/41 routes | ✅ 10/10 routes | Initial baseline |
+
+## Admin sidebar
+
+| Status | Sidebar entry | Expected route |
+| --- | --- | --- |
+| ✅ | Dashboard | `/pos/dashboard` |
+| ✅ | Sales | `/pos/sales` |
+| ✅ | Website Orders | `/pos/website-orders` |
+| ✅ | Sales Return | `/pos/sales-return` |
+| ✅ | Discounts | `/pos/discount` |
+| ✅ | Footfall | `/pos/footfall` |
+| ✅ | Cash Denomination | `/pos/cash-denominations` |
+| ✅ | Expenses | `/pos/expenses` |
+| ✅ | Products | `/pos/products` |
+| ✅ | Product Variants | `/pos/product-variants` |
+| ✅ | Categories | `/pos/categories` |
+| ✅ | Attributes | `/pos/attributes` |
+| ✅ | Tags | `/pos/tags` |
+| ✅ | Brands | `/pos/brands` |
+| ✅ | Purchase | `/pos/purchase` |
+| ✅ | Stock Adjustment | `/pos/stock-adjustment` |
+| ✅ | Stock Transaction | `/pos/stock-transactions` |
+| ✅ | Stock Audit | `/pos/stock-audit` |
+| ✅ | Damage Products | `/pos/damage-products` |
+| ✅ | Customers | `/pos/customers` |
+| ✅ | Suppliers | `/pos/suppliers` |
+| ✅ | Branches | `/pos/branches` |
+| ✅ | Locations | `/pos/locations` |
+| ✅ | Delivery Fees | `/pos/delivery-fees` |
+| ✅ | Reports › Sales | `/pos/sales-report` |
+| ✅ | Reports › Product | `/pos/products-report` |
+| ✅ | Exports | `/pos/exports` |
+| ✅ | Staff | `/pos/staff` |
+| ✅ | Attendance | `/pos/attendance` |
+| ✅ | Incentives | `/pos/incentives` |
+| ✅ | Users | `/pos/users` |
+| ✅ | Roles & Permissions | `/pos/roles` |
+| ✅ | Configuration › Payment Methods | `/pos/payment-methods` |
+| ✅ | Configuration › Sales Status | `/pos/sales-status` |
+| ✅ | Configuration › Payment Status | `/pos/payment-status` |
+| ✅ | Configuration › Attributes | `/pos/attribute-names` |
+| ✅ | Configuration › Inventory | `/pos/inventory-configs` |
+| ✅ | Configuration › Currency | `/pos/currency-config` |
+| ✅ | Configuration › Currency Note | `/pos/note-config` |
+| ✅ | Configuration › POS | `/pos/pos-config` |
+| ✅ | Configuration › Website | `/pos/website-config` |
+
+## Cashier sidebar
+
+Expected visible entries are determined by the cashier role's permissions. Verify both the entries shown below and that all other admin-only entries remain hidden.
+
+| Status | Sidebar entry | Expected route |
+| --- | --- | --- |
+| ✅ | Dashboard | `/pos/dashboard` |
+| ✅ | Sales | `/pos/sales` |
+| ✅ | Website Orders | `/pos/website-orders` |
+| ✅ | Sales Return | `/pos/sales-return` |
+| ✅ | Footfall | `/pos/footfall` |
+| ✅ | Cash Denomination | `/pos/cash-denominations` |
+| ✅ | Expenses | `/pos/expenses` |
+| ✅ | Purchase | `/pos/purchase` |
+| ✅ | Damage Products | `/pos/damage-products` |
+| ✅ | Customers | `/pos/customers` |
+| ⏭️ | Hidden admin-only entries | Not rendered in the sidebar as expected |
+
+## Repeat procedure
+
+1. Start the local backend, frontend, and database services.
+2. Sign in as the admin and check every row in **Admin sidebar**.
+3. Sign out, sign in as the cashier, and check every visible row in **Cashier sidebar**.
+4. Confirm the customer list shows the same tenant records for both roles (subject to permission), without seeding or modifying customers.
+5. Add a new line to **Run log** and update each status with `✅`, `❌`, or `⏭️` (hidden by design).
