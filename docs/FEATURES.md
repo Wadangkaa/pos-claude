@@ -32,7 +32,8 @@ Orders from both channels land in the same `orders` table, distinguished by
   (`ProductVariantStatusEnum`), images, tags, attributes.
 - **Attributes** — key/value characteristics (Size, Color…) attachable to both
   products and variants; attribute-name management page. Attribute names in
-  `settings` are branch owned; other settings remain tenant wide.
+  `settings` are branch owned, along with all website, email, POS, payment,
+  status, currency, and denomination settings.
 - **Tags** — labels on products/variants/categories; used for website filtering and
   "most tag" reporting.
 - **Categories** — with tag assignment (`categories_tags`); drives website navbar.
@@ -99,8 +100,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   original price, and discount label; product-group cards calculate and show their
   min/max range from child products' final prices and identify groups with a sale.
 - **Customers** — CRM basics, linked to orders.
+  Customers remain shared across the company's branches and website accounts.
 - **Footfall / customer returns** — records gender + reason of walk-outs (analytics,
-  not product returns). Route `/pos/footfall`.
+  not product returns). Route `/pos/footfall`; records belong to the active branch.
 
 ## 3. Website (e-commerce)
 
@@ -185,7 +187,10 @@ Orders from both channels land in the same `orders` table, distinguished by
   iframe or HTTPS embed URL. The responsive storefront footer uses the configured
   store name/logo, description, social links, map, shopping links, and copyright.
   Blank social links/maps stay hidden; footer and branding save independently.
-  Footer settings are tenant-specific and do not alter the POS footer.
+  Footer settings belong to the active branch and do not alter the POS footer.
+  Unconfigured branches start with an empty footer and email configuration; Main
+  keeps previously saved company settings. Company administrators select the
+  branch to edit in Website/POS Configuration.
 
 ## 4. Inventory
 
@@ -197,12 +202,15 @@ Orders from both channels land in the same `orders` table, distinguished by
 - **Stock adjustments** — manual corrections with reasons (`StockUpdateReasonEnum`),
   auto stock transactions.
 - **Damage products** — damaged-stock listing + adjust flow.
+  Stock transaction and damage lists, details, and recovery use the active branch.
 - **Stock audit** — Excel-upload physical count audit (`stock_audits`,
   `stock_audit_items`, `stock_audit_results`, `stock_audit_summaries`,
   `ExcelStockAuditReader`), compare counted vs. system stock. A completed audit
   can be exported through the standard Exports page as one workbook with
   **All**, **Matched**, **Mismatch**, **Missing in System**, and **Missing in
   Physical** worksheets.
+  Audit uploads belong to the active branch; background comparisons use that
+  branch's catalog and stock balances, including when branches share a SKU.
 - **Inventory configuration** page.
 - **Branches and transfers** — one company tenant can operate multiple branches.
   A staff hostname fixes the active branch and its inventory balance
@@ -230,13 +238,17 @@ Orders from both channels land in the same `orders` table, distinguished by
 
 - **Cash sessions** — open/close a till session with denomination counts
   (`CashSession`, `CashSessionStatus`, `CashDenominationStage`), current-session
-  lookup, session detail/update.
+  lookup, session detail/update. Each branch has its own current session and
+  history; denomination rows inherit their parent session's branch.
 - **Cash denominations & currency notes** — NPR note/coin configuration
   (`CurrencyNote`, denomination settings pages).
 - **Expenses** — expense tracking with Daily (default) and Overall types and an
   optional bill image, privately stored per tenant and viewable by signed-in
   staff. The dashboard shows today's total for Daily expenses only; expenses
   remain record-only and do not change cash, sales, or stock totals.
+  New expenses inherit the active branch, keeping them visible in that branch's
+  list for cashiers, managers, and admins. Company-portal expenses use the default
+  branch.
   Editing and saving an unchanged expense accepts the API's numeric amount;
   amount validation also accepts typed numeric strings and zero, while rejecting
   blank, negative, and nonnumeric values.
@@ -262,7 +274,11 @@ Orders from both channels land in the same `orders` table, distinguished by
   branch net sales uses paid amounts minus sales returns, matching the Daily
   Sales report. A matching range's points are split among staff marked present
   that day, to four decimal places, with any rounding remainder distributed by
-  staff ID. The page shows daily awards and monthly point totals. An unmatched
+  staff ID. Offer plans show each sales range and its shared point award in
+  separate table columns, with explicit open-ended limits and plan status.
+  Daily awards and monthly totals use grouped numbers, suppress trailing zeros,
+  and preserve fractional awards to four decimal places. The daily summary
+  identifies the qualifying range. An unmatched
   range earns no points; points with no present staff remain unallocated.
   Historical offer plans are locked once their effective date has passed.
   Point balances are recalculated from sales and attendance; payroll conversion
@@ -287,6 +303,8 @@ Orders from both channels land in the same `orders` table, distinguished by
   products with no stock-balance row as zero quantity.
 - Report export (`ReportExportController`, `useReportExport` hook) — queued like
   every other export (`ReportExportJob`), downloaded from the Exports page.
+  Export history and authenticated downloads are limited to the requesting
+  user and active branch, and workers preserve the originating branch.
   Fixed bug (2026-08): export was dropping `limit`/`sort`/`sort_by`/
   `sort_direction`/`threshold`/`category_id`, so exports silently used each
   report's default row count instead of what was selected on screen; also
@@ -300,10 +318,11 @@ Orders from both channels land in the same `orders` table, distinguished by
   clearing both disables it. The report contains Title/Value (NPR) rows for each
   payment-mode total, Sales Return, and Daily Expenses across all brands, using
   the same calculations as the dashboard. Dashboard branch filters narrow the
-  on-screen totals; the scheduled email contains company-wide totals. Total Stock, Products, Suppliers, and
+  on-screen totals; each scheduled email contains only its configured branch's totals. Total Stock, Products, Suppliers, and
   Customers are excluded. Totals are captured at the scheduled minute, retained
   for queued delivery, and protected against repeated sends for the same date.
-  Mail failures retry up to three times; reports use the tenant's email settings.
+  Mail failures retry up to three times; reports use that branch's email settings.
+  Multiple branches can each receive one report on the same date.
 - **Multi-tenancy** — central API to create tenants (`POST /tenants`) and
   irreversibly delete them (`DELETE /tenants/{tenantId}` with the tenant domain as
   confirmation). Each tenant gets its own database + subdomain; deletion removes
@@ -321,9 +340,13 @@ Orders from both channels land in the same `orders` table, distinguished by
   `GET /api/profile` return effective roles and permissions; on branch hosts the
   left sidebar shows only entries covered by the relevant `*-view` permission.
   Company-admin navigation remains separate and is not filtered by this branch UI.
+  The sidebar scrolls vertically without horizontal movement in expanded,
+  collapsed, and mobile layouts.
   Roles are managed from the branch sidebar; users can hold one or more roles.
   Built-in cashier and manager roles provide safe starting presets. Cashiers have
-  POS product lookup permission without catalog-management access. Built-in
+  POS product lookup permission without catalog-management access, plus access
+  to sales returns, footfall, cash denominations/sessions, expenses, purchases,
+  and damage-product recovery. Built-in
   `super-admin`, `admin`, `manager`, and `cashier` roles are read-only; create a
   custom role to tailor permissions. Staff API actions enforce these permissions
   on the server, including reports, imports, exports, catalog edits, and user
@@ -331,14 +354,50 @@ Orders from both channels land in the same `orders` table, distinguished by
   rights. Company summary and branch creation require the admin hostname.
   Branch-host user management is limited to that branch; roles apply across all
   branches assigned to the user. Queued exports retain the requesting branch.
+  Branch portals create users in the current branch automatically; only the
+  company admin portal shows the branch assignment selector. Cashiers can load
+  dashboard summaries and sales payment/status choices without configuration
+  or detailed report access. Sales and customer tables hide actions the user
+  cannot perform.
+  Permission caches are isolated per tenant and reset when switching context,
+  preventing another tenant's role IDs from incorrectly allowing or denying
+  settings saves, website order updates, and other staff actions.
+  Branch operational records and catalog entries are isolated even for an admin
+  assigned to multiple branches. Sales (including drafts), purchases, stock
+  adjustments, and discount product assignments reject another branch's product
+  IDs. Customers remain shared company data. Suppliers, brands, discount definitions,
+  locations, and delivery fees now belong to the active branch. Roles define
+  company-wide staff permissions. All configuration is independently saved
+  and read per branch. Branch creation remains exclusive to the company admin portal.
 - **Authentication** — staff login/profile/logout/change-password (Sanctum tokens).
 - **Activity logs** — Spatie activity log on key models, system-logs UI.
 - **Settings** — POS config (invoice message and notification email), website
   details, email config, payment methods, generic settings CRUD. Configuration
-  edit dialogs preload the selected setting's stored values.
+  edit dialogs preload the selected setting's stored values. Every setting belongs
+  to a branch, including footer/branding, SMTP credentials, invoice text, order
+  notification/report recipients, payment modes, and sales/payment statuses.
+  Branch hosts reject foreign setting IDs; cash payment handling uses the branch's
+  configured Cash method rather than a hardcoded ID. Queued emails restore their
+  originating branch configuration.
 - **Imports/exports tracking** — `imports`/`exports` tables with statistics and
   status (`ImportStatusEnum`, `ExportStatusEnum`); exports listed per-user on
   the Exports page.
+- **Branch business reference isolation** — suppliers, brands, discount definitions,
+  delivery locations and fees are independent per branch. Company administrators
+  select a branch on create; branch users always save to their hostname branch.
+  Related product, purchase, discount, and checkout selections reject foreign
+  branch IDs. Existing shared records move to Main; references used by older
+  documents in other branches receive independent copies so their data and
+  applied discounts are preserved. Customers continue to be shared.
+- **New branch defaults** — creating a branch automatically provisions its domain,
+  creator access, Cash payment method, payment/sales statuses, currencies, NPR
+  notes, and inventory weight setting. Defaults use a common template and receive
+  separate branch-owned rows. Reseeding fills missing setting groups and preserves
+  customized values. Cash denominations read and save the current branch's notes,
+  including fractional denominations. Order and adjustment numbers use the
+  tenant-wide sequence, preventing first-sale collisions with Main. Product-group
+  saves accept omitted optional relations and update existing child attributes;
+  stock audits accept ordinary plain-text CSV files with a `.csv` extension.
 - **Feature flags** — `features` table (central), `website_enabled`, `maintenance_mode`.
 
 ---

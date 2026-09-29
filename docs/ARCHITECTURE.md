@@ -79,19 +79,40 @@ the `2026_09_15_000000_seed_model_permissions` tenant migration backfills existi
 databases, granting all configured permissions to `super-admin` and `admin`.
 The follow-up `2026_09_15_000001_seed_role_presets` migration synchronizes the
 cashier/manager presets and their dashboard/POS lookup permissions.
+The `2026_09_29_160939_expand_cashier_module_permissions` tenant migration
+refreshes the cashier preset for sales returns, footfall, cash denominations and
+sessions, expenses, purchases, and damage products. Damage listing/recovery use
+`inventory-damage_products-view/update`; legacy stock-transaction viewers and
+product editors retain their existing access. Purchase creators/editors may read
+the supplier lookup without supplier-management permissions.
+`TenancyServiceProvider` scopes Spatie's permission cache key to the tenant ID
+after tenancy boots, resets loaded permissions on each context switch, and
+restores the central key after tenancy ends. This isolates role IDs between
+tenant databases, including requests and workers that visit multiple tenants.
 `UserResource` returns effective roles and permissions on login and `GET
 /api/profile`. The branch-only `LeftSidebarMenu` filters items by their `view`
 permission; the company-admin menu deliberately remains independent.
+`styles/left-sidebar-menu.css` uses border-box sizing for accordion summaries
+and disables horizontal overflow on the inner scroll container while retaining
+vertical navigation.
 `RoleSeeder` creates `super-admin`, `admin`, `manager`, and `cashier` presets;
 the cashier's `pos-product_lookup-view` permission is intentionally distinct
 from `inventory-products-view`, which controls catalog navigation. User CRUD
 accepts `role_names` and synchronizes those roles through Spatie.
+`StoreUserRequest` defaults branch-host user writes to the hostname's forced
+branch and rejects foreign assignments. The user form loads and shows branch
+choices only on the company admin portal.
 The Roles API and table prevent the built-in presets from being edited or deleted;
 custom roles retain the editable permission matrix.
 `EnforceTenantPermission` runs after Sanctum authentication and branch assignment
 for staff API and report routes. It maps each action to its configured permission
 and denies unmapped actions. POS product reads accept either the catalog view or
 POS lookup permission; catalog writes require their own action permission.
+Dashboard view permission also allows its specific summary/count requests and
+brand lookup. Sales/payment viewers can read settings lists filtered to exactly
+`payment`, `payment-status`, or `sales-status`; unrestricted settings reads and
+configuration writes retain their own permissions. These dependencies let
+cashiers use the dashboard and sales form without granting management access.
 Company summary and branch mutations require the admin hostname, and the
 summary also requires an administrator role. Role editors cannot grant a
 permission they lack; user editors cannot assign administrator roles or roles
@@ -166,9 +187,22 @@ type = LocationTypeEnum), DeliveryFee (per-city fee, `location_id` FK).
   confirmable and cancellable.
 - `BranchContext` — holds the tenant-domain-selected forced branch or portal type;
   `ScopesToBranch` applies that branch to Eloquent operational models.
+  This includes stock transactions, damage listings, footfall (`CustomerReturns`),
+  cash sessions, stock audits, and export history. `AssignsBranchOnCreate` assigns
+  footfall, cash sessions, and audits to the forced branch (or oldest branch for
+  company writes) and prevents subsequent reassignment. Cash denominations
+  inherit branch ownership through their scoped session.
+  `Exports` assigns the request's forced branch; company-wide exports may have
+  a null branch. History/detail endpoints also enforce requesting-user ownership,
+  and `DownloadController::download()` checks both for files under `exports/`.
+  Stock audit workers restore their stored branch context and reset the previous
+  context afterwards; comparisons read that branch's catalog and balances.
+  Sales/draft, purchase, stock-adjustment, and discount product-assignment rules
+  reject foreign-branch product IDs before saving.
 - `CatalogBranch` and `BelongsToCatalogBranch` — assign and scope Products,
-  ProductVariants, Tags, Categories, Attributes, and Carts to a branch. Attribute
-  name rows in `settings` are scoped by branch while other settings remain shared. On the
+  ProductVariants, Tags, Categories, Attributes, Carts, Settings, Suppliers,
+  Brands, Discounts, Locations, and DeliveryFees to a branch. All rows in `settings` (including website, email, POS, payment modes,
+  statuses, currencies, denominations, weightable, and attribute names) are branch scoped. On the
   company admin host, catalog writes require `branch_id` when more than one
   branch exists. Product SKU uniqueness is `(branch_id, sku)`; the internal
   product code remains tenant-wide. The public website on a branch hostname
@@ -206,13 +240,19 @@ stancl `QueueTenancyBootstrapper`). The docker `queue` worker handles default
 jobs and the dedicated `exports` worker handles Excel/report exports. Its
 30-minute worker timeout is paired with `DB_QUEUE_RETRY_AFTER=1860` seconds,
 preventing a slow workbook from being executed twice.
-`MailConfigServiceProvider` loads tenant email settings on Stancl's
+`MailConfigServiceProvider` loads branch email settings on Stancl's
 `TenancyBootstrapped` event, after the tenant database connection is active;
 queued tenant jobs therefore must not query mail settings during
 `TenancyInitialized`.
 The provider restores central mail settings and clears resolved transports when
 tenancy ends and before loading the next tenant, preventing SMTP credentials or
-sender addresses from carrying over between queue jobs.
+sender addresses from carrying over between queue jobs. `BranchContext::set()`
+also emits `branch.context.changed`; the provider restores baseline mail settings
+before loading the selected branch's `email_config`, with no fallback to another
+branch's credentials. Queued customer verification/reset and order notifications
+carry `UseBranchContext` middleware; order notifications select the order's branch,
+and authentication notifications capture the originating website branch. The
+middleware restores the worker's previous context even after failures.
 The queue-level `JobFailed` listener re-enters the payload's tenant context and
 marks failed `ExportJob`/`ReportExportJob`/`StockAuditExportJob` records as
 failed, including errors raised before the job's `handle()` method can run.
@@ -254,15 +294,16 @@ failed, including errors raised before the job's `handle()` method can run.
 
 `SavePosConfigRequest` validates nullable `daily_report_time` (HH:MM) and
 `daily_report_email` as a pair in the existing `settings/pos-config` endpoints.
-`settings.value_json` stores them; saving omitted fields preserves prior values.
+`settings.value_json` stores them per branch; saving omitted fields preserves prior values.
 The UI at `/pos/pos-config` shows Nepal time and a separate report recipient.
 `reports:send-daily-dashboard` is registered every minute in `routes/console.php`
-with an overlap lock. It visits active tenants, checks the configured time in
+with an overlap lock. It visits active tenants and their active branches, checks each branch's configured time in
 `Asia/Kathmandu`, captures all-brand rows from `DashboardSummaryService`, and
-creates one tenant `daily_dashboard_reports` row per date before queuing delivery.
+creates one `daily_dashboard_reports` row per branch/date before queuing delivery.
 The service also supplies the dashboard's payment-mode, Sales Return, and Daily
 Expenses endpoints, preserving their brand and selected/forced branch filters.
-Scheduled reports use company-wide totals. Excel contains numeric NPR
+Scheduled reports use only their configured branch's totals and SMTP settings. The
+command and delivery worker restore the prior branch context after processing. Excel contains numeric NPR
 values with text titles; the four stock/product/supplier/customer counts are excluded.
 
 Docker Compose runs a `scheduler` service with `php artisan schedule:work`,
@@ -288,9 +329,19 @@ RoleEnum, PermissionEnum, LocationTypeEnum (country/district/city, with
 - Central: `database/migrations/` (tenants, domains, users, tokens, features).
 - Tenant: `database/migrations/tenant/` — run with `php artisan tenants:migrate`.
 
+`2026_09_29_163706_scope_operational_records_to_branches` adds nullable branch
+foreign keys to `customer_returns`, `cash_sessions`, `stock_audits`, and `exports`.
+It requires the branch architecture migrations first and supports retry after a
+partial MySQL schema change. Historical rows are not assigned by guesswork;
+records with an unknown branch remain accessible from the company admin portal.
+
 Expenses use `ExpenseTypeEnum` (`daily`/`overall`). The additive expense migration
 defaults existing rows to Daily and adds a private `bill_image_path`; uploaded
 bills are fetched only through authenticated `GET /api/expense/{id}/bill-image`.
+The custom expense upload controller applies `Expense::mergeRequest()` when
+creating a record, assigning the forced branch or the default branch on the
+company portal. Request-supplied branch IDs cannot override this assignment;
+expense lists, details, and bill images respect the same branch scope.
 `GET /api/report/total-daily-expenses` sums Daily expenses whose expense date is
 today, independent of sales, cash, or stock accounting.
 `GET /api/report/sales/daily` also groups all expenses by expense date and type,
@@ -340,6 +391,11 @@ sales-return dates as `ReportController::dailySalesReport`, scoped to the
 hostname branch. It divides each day's integer award into 10,000-unit point
 fractions among present staff and aggregates these live calculations by month.
 There is no payroll money conversion or stored point ledger yet.
+`IncentivesPage.jsx` presents plan tiers as separate sales-from, sales-below,
+and points-to-share columns. Sales amounts use grouped NPR values and point
+displays retain up to four decimal places without trailing zeros. Formatting
+does not change the original tier values used when editing or saving. Offer
+tables, point tables, and the plan dialog adapt to narrow screens.
 
 ## Frontend (`pos-frontend/`) — React 18 + Vite
 
@@ -381,7 +437,7 @@ Customer recovery uses public, rate-limited `POST
 uses the active tenant database's `customer_password_reset_tokens` table, separate
 from staff tokens; credentials require `has_login`. Reset tokens are hashed,
 expire after 60 minutes, and are deleted on success along with customer API tokens.
-`CustomerPasswordResetNotification` queues mail using the tenant email settings.
+`CustomerPasswordResetNotification` queues mail using the originating branch's email settings.
 Its frontend URL is captured before queueing and built from trusted tenant data
 and `config/customer_auth.php`, never the request Origin or Host headers.
 `CUSTOMER_FRONTEND_URL` supports `{domain}` and `{tenant}` placeholders; it defaults
@@ -423,13 +479,17 @@ staff route is under `/pos`.
 `footer_description`, `facebook_url`, `instagram_url`, `tiktok_url`, `x_url`, and
 `map_embed_url`. Staff save these through the existing authenticated
 `POST /api/settings/website-details` endpoint and `SaveWebsiteDetailsRequest`.
+Website, email, and POS config reads/upserts use `(branch_id, key)`. Branch
+hostnames always force their own branch; the company website uses Main (oldest
+branch). Company administrators can select a branch in Website/POS Configuration
+and pass `branch_id`; ordinary branch users cannot override their hostname.
 Updates merge only supplied validated fields into the existing tenant
 `settings.value_json` for `website_details`, preserving uploaded branding and
 omitted footer values. No migration is needed. The request validates social URL
 protocols and extracts an HTTPS `src` from pasted iframe HTML; only that URL is
 stored. `WebsiteFooter.tsx` renders plain text, external links, and a titled,
 sandboxed, lazy-loaded iframe inside `WebsiteLayout`, exclusively for storefront
-routes. The admin footer form saves separately and updates the shared
+routes. The admin footer form saves separately and invalidates the
 `website-config` query cache.
 
 ### Website-order fulfilment
@@ -545,3 +605,43 @@ no per-tenant database is created:
   `assertJsonValidationErrors`.
 - `ReportController` date-grouping SQL is driver-aware (strftime on sqlite,
   DATE_FORMAT/WEEK/YEAR on MySQL) so the report tests can run on sqlite.
+
+### Branch configuration migration (Sep 29, 2026)
+
+`2026_09_29_175730_scope_all_settings_and_daily_reports_to_branches` assigns
+previously global settings (including saved footer and SMTP credentials) to Main.
+It creates independent payment/status/currency/denomination/weight defaults in
+other existing branches and relinks their historical order/payment setting IDs.
+It does not copy footer, email credentials, or POS report/notification recipients
+to other branches. New branches receive independent operational defaults through
+`BranchSettingDefaults`; admin-created catalog/configuration records require a
+branch selection. Cash selection and required cash entry use the configured
+method's value rather than assuming setting ID 1.
+
+`2026_09_29_181439_scope_business_reference_data_to_branches` adds nullable
+branch FKs to suppliers, brands, discounts, locations, and delivery fees. It
+assigns existing rows to Main and clones only dependencies referenced by existing
+other-branch products, product groups, purchases, orders, and discount pivots,
+relinking those documents to their independent records. Location ancestors are
+cloned with their city; fee configuration is not copied. Supplier codes, brand
+names, and location names use branch composite uniqueness. Catalog request
+validation prevents foreign supplier/brand/parent/location IDs, and discount
+assignment/import stays within the discount's branch. Reference-data forms use
+`useConfigurationBranch` through `useAddModel` or their custom submit handlers
+so company administrators choose ownership before creating a record.
+
+`Branch::afterStore()` delegates operational defaults to `BranchSettingDefaults`
+inside the branch-create transaction, then grants creator access and registers the
+branch hostname. Tenant provisioning uses the same service for Main; legacy
+`PaymentModeSeeder` and `CashSettingSeeder` delegate to it for each branch. The
+service seeds only missing setting groups, so reruns preserve customized singleton
+values and payment/status lists. Defaults are code templates rather than shared
+database rows. `CashSessionController::currenciesNotes()` uses branch-scoped Setting
+queries, and `SaveCurrencyNotesRequest` validates positive distinct values before
+`CurrencyNoteController` stores a JSON array. `Order::getCode()` and stock-adjustment
+numbering bypass only the branch scope to preserve tenant-wide document sequences.
+Product-group hooks tolerate absent optional relationship arrays, preserve omitted
+group relations on updates, and sync supplied child attribute IDs. Stock-audit file
+validation allows the plain-text MIME detected for CSV while checking the `.csv` or
+`.xlsx` extension. `NewBranchOnboardingTest` covers provisioning, safe reseeding,
+note isolation, first purchase/sale/return/adjustment, group updates, and CSV uploads.
