@@ -63,13 +63,16 @@ the seeder's default password.
 
 Create these during section B. Record names and emails only.
 
-| Account           | Role          | Branch assignment                   | Email        |
-| ----------------- | ------------- | ----------------------------------- | ------------ |
-| Owner             | `super-admin` | Main (auto) + Branch B (as creator) | tenant email |
-| Branch admin      | `admin`       | Branch B                            |              |
-| Manager           | `manager`     | Branch B                            |              |
-| Cashier           | `cashier`     | Branch B                            |              |
-| Main-only cashier | `cashier`     | Main only                           |              |
+| Account           | Role                                              | Branch assignment                   | Email        |
+| ----------------- | ------------------------------------------------- | ----------------------------------- | ------------ |
+| Owner             | `super-admin`                                     | Main (auto) + Branch B (as creator) | tenant email |
+| Branch admin      | `admin`                                           | Branch B                            |              |
+| Manager           | `manager`                                         | Branch B                            |              |
+| Cashier           | `cashier`                                         | Branch B                            |              |
+| Main-only cashier | `cashier`                                         | Main only                           |              |
+| Multi-branch user | `cashier`                                         | Main + Branch B                     |              |
+| Multi-role user   | `cashier` + custom `stock-keeper` (created in F9) | Branch B                            |              |
+| Unassigned user   | `cashier`                                         | none                                |              |
 
 ---
 
@@ -121,15 +124,36 @@ On the company admin host, signed in as the Owner.
 
 ### B3. Users and branch assignment
 
-| Status | ID   | Check                                                 | Expected                                             | Notes |
-| ------ | ---- | ----------------------------------------------------- | ---------------------------------------------------- | ----- |
-| ⬜     | B3.1 | User form on the admin host                           | Shows the branch assignment selector                 |       |
-| ⬜     | B3.2 | Create Branch admin, Manager and Cashier for Branch B | All three saved with the right role and branch       |       |
-| ⬜     | B3.3 | Create Main-only cashier                              | Saved, assigned to Main only                         |       |
-| ⬜     | B3.4 | Assign one user to both Main and Branch B             | Saved; both branches shown on the user               |       |
-| ⬜     | B3.5 | Manager logs in at the admin host                     | Rejected — admin host needs `admin` or `super-admin` |       |
-| ⬜     | B3.6 | Cashier logs in at the admin host                     | Rejected                                             |       |
-| ⬜     | B3.7 | Main-only cashier logs in at the Branch B host        | Rejected — no assignment to that branch              |       |
+| Status | ID   | Check                                                            | Expected                                             | Notes |
+| ------ | ---- | ---------------------------------------------------------------- | ---------------------------------------------------- | ----- |
+| ⬜     | B3.1 | User form on the admin host                                      | Shows the branch assignment selector                 |       |
+| ⬜     | B3.2 | Create Branch admin, Manager and Cashier for Branch B            | All three saved with the right role and branch       |       |
+| ⬜     | B3.3 | Create Main-only cashier                                         | Saved, assigned to Main only                         |       |
+| ⬜     | B3.4 | Create the Multi-branch user, assigned to both Main and Branch B | Saved; both branches shown on the user               |       |
+| ⬜     | B3.5 | Manager logs in at the admin host                                | Rejected — admin host needs `admin` or `super-admin` |       |
+| ⬜     | B3.6 | Cashier logs in at the admin host                                | Rejected                                             |       |
+| ⬜     | B3.7 | Main-only cashier logs in at the Branch B host                   | Rejected — no assignment to that branch              |       |
+| ⬜     | B3.8 | Create the Unassigned user with no branch selected               | Saved; shown with "No branch access"                 |       |
+
+### B4. Branch login access
+
+Only users assigned to a branch can sign in on that branch's host. A user
+assigned to several branches can sign in on each of them.
+
+| Status | ID    | Check                                                             | Expected                                                                                 | Notes |
+| ------ | ----- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----- |
+| ⬜     | B4.1  | Cashier (Branch B only) logs in at the Branch B host              | Succeeds; lands on `/pos/dashboard`                                                      |       |
+| ⬜     | B4.2  | Same Cashier logs in at the Main host                             | Rejected with "You are not assigned to this branch"; stays on the login page, no session |       |
+| ⬜     | B4.3  | Main-only cashier logs in at the Main host                        | Succeeds                                                                                 |       |
+| ⬜     | B4.4  | Multi-branch user logs in at the Main host                        | Succeeds                                                                                 |       |
+| ⬜     | B4.5  | Multi-branch user logs in at the Branch B host                    | Succeeds                                                                                 |       |
+| ⬜     | B4.6  | Multi-branch user is signed in on both hosts at the same time     | Both sessions keep working independently                                                 |       |
+| ⬜     | B4.7  | Unassigned user logs in at the Main host and at the Branch B host | Rejected on both                                                                         |       |
+| ⬜     | B4.8  | Use the Cashier's Branch B token against the Main host API        | 403 — a token does not carry access to another branch                                    |       |
+| ⬜     | B4.9  | Company admin removes Main from the Multi-branch user             | Login at Main is now rejected; Branch B still works                                      |       |
+| ⬜     | B4.10 | That user's existing Main session makes another request           | Refused (403); no Main data returned                                                     |       |
+| ⬜     | B4.11 | Company admin adds Main back                                      | Login at Main works again                                                                |       |
+| ⬜     | B4.12 | Users list on each branch host                                    | Multi-branch user is listed on both; single-branch users only on their own               |       |
 
 ## C. Branch portal as Branch admin
 
@@ -268,6 +292,8 @@ On the Branch B host, signed in as the Cashier.
 
 On the Branch B host, signed in as the Branch admin.
 
+### Managing roles
+
 | Status | ID  | Check                                                      | Expected                                                   | Notes |
 | ------ | --- | ---------------------------------------------------------- | ---------------------------------------------------------- | ----- |
 | ⬜     | F1  | Open each built-in role                                    | `super-admin`, `admin`, `manager`, `cashier` are read-only |       |
@@ -279,25 +305,51 @@ On the Branch B host, signed in as the Branch admin.
 | ⬜     | F7  | Delete the custom role                                     | Removed; built-in roles cannot be deleted                  |       |
 | ⬜     | F8  | Switch between two tenants in the same browser             | Permissions follow the tenant; no stale access             |       |
 
+### Users with more than one role
+
+Still as the Branch admin for setup, then signed in as the Multi-role user on
+the Branch B host. Uses the product and stock created in C2.
+
+| Status | ID  | Check                                                                                                         | Expected                                                                                                                   | Notes |
+| ------ | --- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----- |
+| ⬜     | F9  | Create custom role `stock-keeper`: Products view/create/update, Stock Adjustments view/create, Suppliers view | Saved                                                                                                                      |       |
+| ⬜     | F10 | Create the Multi-role user and select both `cashier` and `stock-keeper` in the user form                      | Saved with both roles                                                                                                      |       |
+| ⬜     | F11 | Users table and edit form for that user                                                                       | Roles column shows both roles; Edit opens with both preselected                                                            |       |
+| ⬜     | F12 | Multi-role user logs in                                                                                       | Sidebar is the cashier's 10 entries plus Products, Stock Adjustment and Suppliers (13)                                     |       |
+| ⬜     | F13 | Cashier feature: complete a sale with payment                                                                 | Allowed                                                                                                                    |       |
+| ⬜     | F14 | Cashier feature: sales return and expense                                                                     | Allowed                                                                                                                    |       |
+| ⬜     | F15 | Stock-keeper feature: create and edit a product                                                               | Allowed                                                                                                                    |       |
+| ⬜     | F16 | Stock-keeper feature: stock adjustment                                                                        | Allowed; stock changes                                                                                                     |       |
+| ⬜     | F17 | Something neither role grants: delete a product, open Users, Roles, Reports, Configuration                    | Not in the sidebar; API returns 403                                                                                        |       |
+| ⬜     | F18 | Remove `stock-keeper` from the user (keep `cashier`)                                                          | Products, Stock Adjustment and Suppliers disappear; product create returns 403; sales still work                           |       |
+| ⬜     | F19 | Swap: give the user only `stock-keeper`                                                                       | Can manage products; cannot make a sale (403); cashier-only entries gone                                                   |       |
+| ⬜     | F20 | Give the user two built-in roles, `cashier` + `manager`                                                       | Manager's access applies: 40 sidebar entries, still no Roles & Permissions                                                 |       |
+| ⬜     | F21 | Give the Multi-branch user two roles and log in on both branch hosts                                          | Same roles and sidebar on Main and on Branch B                                                                             |       |
+| ⬜     | F22 | Manager opens the user form                                                                                   | Roles list offers only roles the manager may assign (no `admin`, `super-admin`); assigning one through the API returns 403 |       |
+| ⬜     | F23 | Try to save a user with no role selected                                                                      | Rejected: "Select at least one role"                                                                                       |       |
+
 ## G. Branch isolation and shared customers
 
-Compare Main (Branch A) with Branch B. Use the Owner, who is assigned to both.
+Compare Main (Branch A) with Branch B. Use the Owner, who is assigned to both,
+and the Multi-branch user for G14–G15.
 
-| Status | ID  | Check                                                    | Expected                                                 | Notes |
-| ------ | --- | -------------------------------------------------------- | -------------------------------------------------------- | ----- |
-| ⬜     | G1  | Products on the Main host                                | Branch B's product is not listed                         |       |
-| ⬜     | G2  | Create a product on Main with the same SKU as Branch B's | Allowed — SKUs are unique per branch                     |       |
-| ⬜     | G3  | Suppliers, brands, categories, discounts on Main         | Branch B's records are not listed                        |       |
-| ⬜     | G4  | Sales, purchases, sales returns, expenses on Main        | Branch B's records are not listed                        |       |
-| ⬜     | G5  | Stock transactions and cash sessions on Main             | Branch B's records are not listed                        |       |
-| ⬜     | G6  | Staff, attendance, incentives on Main                    | Branch B's records are not listed                        |       |
-| ⬜     | G7  | Configuration on Main                                    | Branch B's invoice message change (C2.13) is not applied |       |
-| ⬜     | G8  | Exports page on Main                                     | Branch B's export is not listed                          |       |
-| ⬜     | G9  | **Customers on Main**                                    | Branch B's customer (C2.4) **is** listed                 |       |
-| ⬜     | G10 | Sell to that shared customer on Main                     | Allowed; history shows on the customer                   |       |
-| ⬜     | G11 | On Main, call a list API with `branch_id` of Branch B    | Ignored — still returns Main's data                      |       |
-| ⬜     | G12 | On Main, submit a sale using Branch B's product ID       | Rejected                                                 |       |
-| ⬜     | G13 | Make one sale on Main (note the amount)                  | Saved against Main                                       |       |
+| Status | ID  | Check                                                         | Expected                                                                                             | Notes |
+| ------ | --- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----- |
+| ⬜     | G1  | Products on the Main host                                     | Branch B's product is not listed                                                                     |       |
+| ⬜     | G2  | Create a product on Main with the same SKU as Branch B's      | Allowed — SKUs are unique per branch                                                                 |       |
+| ⬜     | G3  | Suppliers, brands, categories, discounts on Main              | Branch B's records are not listed                                                                    |       |
+| ⬜     | G4  | Sales, purchases, sales returns, expenses on Main             | Branch B's records are not listed                                                                    |       |
+| ⬜     | G5  | Stock transactions and cash sessions on Main                  | Branch B's records are not listed                                                                    |       |
+| ⬜     | G6  | Staff, attendance, incentives on Main                         | Branch B's records are not listed                                                                    |       |
+| ⬜     | G7  | Configuration on Main                                         | Branch B's invoice message change (C2.13) is not applied                                             |       |
+| ⬜     | G8  | Exports page on Main                                          | Branch B's export is not listed                                                                      |       |
+| ⬜     | G9  | **Customers on Main**                                         | Branch B's customer (C2.4) **is** listed                                                             |       |
+| ⬜     | G10 | Sell to that shared customer on Main                          | Allowed; history shows on the customer                                                               |       |
+| ⬜     | G11 | On Main, call a list API with `branch_id` of Branch B         | Ignored — still returns Main's data                                                                  |       |
+| ⬜     | G12 | On Main, submit a sale using Branch B's product ID            | Rejected                                                                                             |       |
+| ⬜     | G13 | Make one sale on Main (note the amount)                       | Saved against Main                                                                                   |       |
+| ⬜     | G14 | Multi-branch user on the Main host, then on the Branch B host | Each session lists only that branch's products, sales and stock; the receipt header is that branch's |       |
+| ⬜     | G15 | Multi-branch user makes a sale on each host                   | Each sale is saved against the host's branch, never the other                                        |       |
 
 ## H. Company admin — consolidated view
 

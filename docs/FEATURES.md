@@ -324,7 +324,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   payment-mode total, Sales Return, and Daily Expenses across all brands, using
   the same calculations as the dashboard. Dashboard branch filters narrow the
   on-screen totals; each scheduled email contains only its configured branch's totals. Total Stock, Products, Suppliers, and
-  Customers are excluded. Totals are captured at the scheduled minute, retained
+  Customers are excluded. If the scheduler misses the configured minute (deploy,
+  restart), the report is still queued when it next runs within 60 minutes of
+  that time; after that the day is skipped. Totals are captured when the report is queued, retained
   for queued delivery, and protected against repeated sends for the same date.
   Mail failures retry up to three times; reports use that branch's email settings.
   Multiple branches can each receive one report on the same date.
@@ -362,11 +364,16 @@ Orders from both channels land in the same `orders` table, distinguished by
   list the roles they are allowed to assign, without role-management access.
   Branch-host user management is limited to that branch; roles apply across all
   branches assigned to the user. Queued exports retain the requesting branch.
+  The branch portal's Users table has a Roles column, and editing a user
+  preselects their current roles.
   Branch portals create users in the current branch automatically; only the
   company admin portal shows the branch assignment selector. Cashiers can load
   dashboard summaries and sales payment/status choices without configuration
-  or detailed report access. Sales and customer tables hide actions the user
-  cannot perform.
+  or detailed report access. Sales, customer and product tables hide actions
+  (add, edit, delete, import, export) the user cannot perform. Opening a branch-portal
+  page by URL without its sidebar permission shows a "You do not have access to
+  this page" message instead of the page (`PermissionGate`); detail pages with no
+  sidebar entry rely on the API alone.
   Permission caches are isolated per tenant and reset when switching context,
   preventing another tenant's role IDs from incorrectly allowing or denying
   settings saves, website order updates, and other staff actions.
