@@ -114,7 +114,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   the sidebar. Unchecking that category or clearing filters removes the tag
   selection; a category can include multiple tags, while a single tag stays
   narrower. Child-product lookups for category and tag filters use an indexed
-  `products.product_variant_id` relation.
+  `products.product_variant_id` relation. Below the `lg` breakpoint the filter
+  sidebar is hidden and opens as a slide-over drawer from a "Filters" button
+  (with an active-filter count) above the product grid.
   Public endpoints under `/api/website/*`.
 - **Customer accounts** — register, login (Sanctum `auth:customer` guard on the
   Customer model), profile, logout.
@@ -305,6 +307,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   every other export (`ReportExportJob`), downloaded from the Exports page.
   Export history and authenticated downloads are limited to the requesting
   user and active branch, and workers preserve the originating branch.
+  File names carry a random part so exports started in the same second do not
+  overwrite each other. The daily sales report's expense figures follow the same
+  branch filter as its sales.
   Fixed bug (2026-08): export was dropping `limit`/`sort`/`sort_by`/
   `sort_direction`/`threshold`/`category_id`, so exports silently used each
   report's default row count instead of what was selected on screen; also
@@ -352,6 +357,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   on the server, including reports, imports, exports, catalog edits, and user
   management. A cashier can search products for POS sales without catalog edit
   rights. Company summary and branch creation require the admin hostname.
+  Signing in on the admin hostname is refused for anyone without the `admin` or
+  `super-admin` role. Staff who can create or edit users (such as managers) can
+  list the roles they are allowed to assign, without role-management access.
   Branch-host user management is limited to that branch; roles apply across all
   branches assigned to the user. Queued exports retain the requesting branch.
   Branch portals create users in the current branch automatically; only the
@@ -370,7 +378,9 @@ Orders from both channels land in the same `orders` table, distinguished by
   company-wide staff permissions. All configuration is independently saved
   and read per branch. Branch creation remains exclusive to the company admin portal.
 - **Authentication** — staff login/profile/logout/change-password (Sanctum tokens).
-- **Activity logs** — Spatie activity log on key models, system-logs UI.
+- **Activity logs** — Spatie activity log on key models (orders, products, stock
+  adjustments), system-logs UI. A branch portal lists only activity on its own
+  records; the company admin portal lists every branch.
 - **Settings** — POS config (invoice message and notification email), website
   details, email config, payment methods, generic settings CRUD. Configuration
   edit dialogs preload the selected setting's stored values. Every setting belongs
@@ -398,7 +408,15 @@ Orders from both channels land in the same `orders` table, distinguished by
   tenant-wide sequence, preventing first-sale collisions with Main. Product-group
   saves accept omitted optional relations and update existing child attributes;
   stock audits accept ordinary plain-text CSV files with a `.csv` extension.
+- **Deleting a branch** — company admins can delete a branch from the admin
+  portal's Branches table. Only an empty branch can be deleted: its default
+  settings, user assignments and hostname mapping are removed with it. A branch
+  that has products, sales or any other records, or the company's only branch,
+  is refused with an explanation. Branch portals show the Branches list read-only.
 - **Feature flags** — `features` table (central), `website_enabled`, `maintenance_mode`.
+  While `website_enabled` is off the public storefront API (`/api/website/*`,
+  cart, customer auth and orders) answers 403; only `get-features` stays open so
+  the storefront can show its disabled page.
 
 ---
 

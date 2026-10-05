@@ -51,6 +51,8 @@ channels — `orders.type` is `OrderTypeEnum: 'pos' | 'website'`. Nepal specific
 | `docs/ARCHITECTURE.md` | Backend/frontend structure, routes, models, services, conventions |
 | `pos-backend/DATABASE_SCHEMA.md` | DB schema (written Oct 2025 — core tables accurate, but see the "Newer tables" note in docs/ARCHITECTURE.md for entities added since) |
 | `pos-backend/CLAUDE.md` | Laravel Boost coding guidelines for backend work |
+| `docs/QA_REGRESSION_TEMPLATE.md` | Blueprint for the full QA regression (tenant → branches → roles → consolidated reports). Never filled in; run only when asked |
+| `docs/qa-runs/QA_RUN_YYYY-MM-DD.md` | One result file per QA run, copied from the template and marked ✅ / ❌ / ⏭️ |
 
 **Update policy:** whenever a feature is added/changed, update `docs/FEATURES.md`;
 whenever structure/routes/models change, update `docs/ARCHITECTURE.md`; whenever a
@@ -91,4 +93,5 @@ npm run deploy:<tenant>           # build + scp dist/ to a tenant subdomain
 - Frontend is a TS/JSX mix; UI is MUI + some Mantine + Tailwind; state is Redux
   Toolkit (+redux-persist) for auth/order form, TanStack Query for server data.
 - Feature flags via `features` table + `FeatureKey` enum (`website_enabled`,
-  `maintenance_mode`); website checks it through `WebsiteEnabledMiddleware`.
+  `maintenance_mode`); the storefront checks it through `WebsiteEnabledMiddleware`
+  (frontend) and the API enforces it with `EnsureWebsiteEnabled` (backend).

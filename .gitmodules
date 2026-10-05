@@ -1,0 +1,6 @@
+[submodule "pos-backend"]
+	path = pos-backend
+	url = git@github.com:Raj02000/pos-backend.git
+[submodule "pos-frontend"]
+	path = pos-frontend
+	url = git@github.com:Raj02000/pos-frontend.git

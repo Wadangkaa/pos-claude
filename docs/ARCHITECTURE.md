@@ -108,6 +108,11 @@ custom roles retain the editable permission matrix.
 for staff API and report routes. It maps each action to its configured permission
 and denies unmapped actions. POS product reads accept either the catalog view or
 POS lookup permission; catalog writes require their own action permission.
+`role/all` is also readable by staff who can create or edit users, limited to the
+roles they may assign. `EnsureWebsiteEnabled` guards the storefront route files
+(`routes/website/*`, except `get-features`) and answers 403 while the tenant's
+`website_enabled` feature is off. Staff login on the admin hostname requires the
+`admin` or `super-admin` role.
 Dashboard view permission also allows its specific summary/count requests and
 brand lookup. Sales/payment viewers can read settings lists filtered to exactly
 `payment`, `payment-status`, or `sales-status`; unrestricted settings reads and

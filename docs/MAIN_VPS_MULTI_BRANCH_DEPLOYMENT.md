@@ -277,8 +277,9 @@ build is performed on this VPS.
    and verify it sees only that branch's operational data.
 6. Confirm Customers remain visible as the tenant-wide shared list where the
    role has customer access.
-7. Run the sidebar role regression checklist only if explicitly requested:
-   `docs/QA_SIDEBAR_ROLE_REGRESSION.md`.
+7. Run the QA regression only if explicitly requested: copy
+   `docs/QA_REGRESSION_TEMPLATE.md` to `docs/qa-runs/QA_RUN_YYYY-MM-DD.md`
+   and record the results there.
 
 If maintenance mode was enabled, bring the app back up only after these checks:
 
