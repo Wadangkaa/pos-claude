@@ -3,8 +3,10 @@
 ## Purpose
 
 This is the **blueprint** for a full-application regression pass. It walks one
-new tenant from provisioning through branch creation, per-role checks on a
-branch, branch data isolation, and the company admin's consolidated view.
+new tenant from provisioning (which creates no branch) through the company
+admin creating the first branch, further branch creation, per-role checks on a
+branch, branch data isolation, the company admin's consolidated view, and the
+per-branch website lock.
 
 This file is never filled in. Each run produces its own dated result file.
 
@@ -52,27 +54,30 @@ permission check, not a failed navigation check.
 | Test tenant name / slug  |                                     |
 | Website host             | `{tenant}.{domain}`                 |
 | Company admin host       | `admin.{tenant}.{domain}`           |
-| Branch A host (Main)     | `main.{tenant}.{domain}`            |
+| Branch A host (Main)     | `main.{tenant}.{domain}` (from B0)  |
 | Branch B host            | `{branch-b-slug}.{tenant}.{domain}` |
 
 Locally `{domain}` is `localhost`, the frontend is on port 3000 and the central
 API is `api.localhost:8000`. A new tenant's first user is the tenant email with
 the seeder's default password.
 
+A new tenant has **no branch**. "Main" in this template is the first branch,
+which the Owner creates in B0 and names `Main`; it is Branch A everywhere below.
+
 ### Test accounts
 
 Create these during section B. Record names and emails only.
 
-| Account           | Role                                              | Branch assignment                   | Email        |
-| ----------------- | ------------------------------------------------- | ----------------------------------- | ------------ |
-| Owner             | `super-admin`                                     | Main (auto) + Branch B (as creator) | tenant email |
-| Branch admin      | `admin`                                           | Branch B                            |              |
-| Manager           | `manager`                                         | Branch B                            |              |
-| Cashier           | `cashier`                                         | Branch B                            |              |
-| Main-only cashier | `cashier`                                         | Main only                           |              |
-| Multi-branch user | `cashier`                                         | Main + Branch B                     |              |
-| Multi-role user   | `cashier` + custom `stock-keeper` (created in F9) | Branch B                            |              |
-| Unassigned user   | `cashier`                                         | none                                |              |
+| Account           | Role                                              | Branch assignment            | Email        |
+| ----------------- | ------------------------------------------------- | ---------------------------- | ------------ |
+| Owner             | `super-admin`                                     | Main + Branch B (as creator) | tenant email |
+| Branch admin      | `admin`                                           | Branch B                     |              |
+| Manager           | `manager`                                         | Branch B                     |              |
+| Cashier           | `cashier`                                         | Branch B                     |              |
+| Main-only cashier | `cashier`                                         | Main only                    |              |
+| Multi-branch user | `cashier`                                         | Main + Branch B              |              |
+| Multi-role user   | `cashier` + custom `stock-keeper` (created in F9) | Branch B                     |              |
+| Unassigned user   | `cashier`                                         | none                         |              |
 
 ---
 
@@ -80,22 +85,45 @@ Create these during section B. Record names and emails only.
 
 Central API, authenticated as a central user.
 
-| Status | ID  | Check                                     | Expected                                                                                    | Notes |
-| ------ | --- | ----------------------------------------- | ------------------------------------------------------------------------------------------- | ----- |
-| ⬜     | A1  | `POST /auth/login` on the central API     | Token returned                                                                              |       |
-| ⬜     | A2  | `POST /tenants` with name, email, phone   | "Tenant created successfully"; slug derived from the name                                   |       |
-| ⬜     | A3  | `POST /tenants` again with the same email | Rejected with a validation error                                                            |       |
-| ⬜     | A4  | Tenant database                           | `ant_pos_{uuid}` exists and is migrated                                                     |       |
-| ⬜     | A5  | Domain mappings                           | Website host, `admin.` host and `main.` branch host all exist                               |       |
-| ⬜     | A6  | Seeded branch                             | One branch `Main` (code `MAIN`)                                                             |       |
-| ⬜     | A7  | Seeded owner                              | User with the tenant email, role `super-admin`, assigned to Main                            |       |
-| ⬜     | A8  | Seeded roles                              | `super-admin`, `admin`, `manager`, `cashier` exist                                          |       |
-| ⬜     | A9  | Main branch defaults                      | Cash payment method, payment/sales statuses, currency, NPR notes, inventory setting present |       |
-| ⬜     | A10 | Feature flags                             | `website_enabled` and `maintenance_mode` both off                                           |       |
+| Status | ID  | Check                                                                           | Expected                                                                                                      | Notes |
+| ------ | --- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----- |
+| ⬜     | A1  | `POST /auth/login` on the central API                                           | Token returned                                                                                                |       |
+| ⬜     | A2  | `POST /tenants` with name, email, phone                                         | "Tenant created successfully"; slug derived from the name                                                     |       |
+| ⬜     | A3  | `POST /tenants` again with the same email                                       | Rejected with a validation error                                                                              |       |
+| ⬜     | A4  | Tenant database                                                                 | `ant_pos_{uuid}` exists and is migrated                                                                       |       |
+| ⬜     | A5  | Domain mappings                                                                 | Website host and `admin.` host exist; there is no branch host yet                                             |       |
+| ⬜     | A6  | No seeded branch                                                                | The tenant has no branch and no settings rows                                                                 |       |
+| ⬜     | A7  | Seeded owner                                                                    | User with the tenant email, role `super-admin`, assigned to no branch                                         |       |
+| ⬜     | A8  | Seeded roles                                                                    | `super-admin`, `admin`, `manager`, `cashier` exist                                                            |       |
+| ⬜     | A9  | Seeded customer                                                                 | The walk-in `Cash` customer exists                                                                            |       |
+| ⬜     | A10 | Feature flags                                                                   | Central `features` has `website_enabled` and `maintenance_mode` for the tenant, both off, with no `branch_id` |       |
+| ⬜     | A11 | `php artisan features:set {tenant} website_enabled on` before any branch exists | Refused: "Branch not found for this tenant."; the flags are unchanged                                         |       |
 
 ## B. Company admin portal
 
 On the company admin host, signed in as the Owner.
+
+### B0. Before and at the first branch
+
+Run this first. B0.1–B0.7 are done while the tenant still has no branch.
+
+| Status | ID    | Check                                                                                          | Expected                                                                                                                                          | Notes |
+| ------ | ----- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| ⬜     | B0.1  | Owner logs in at the website host                                                              | Rejected with "Create a branch in the company admin portal first"; stays on the login page, no session                                            |       |
+| ⬜     | B0.2  | Storefront at the website host                                                                 | Shows the website-disabled page; `get-features` reports both flags off; other `/api/website/*` calls return 403                                   |       |
+| ⬜     | B0.3  | Owner logs in at the admin host                                                                | Succeeds; lands on `/pos/dashboard`                                                                                                               |       |
+| ⬜     | B0.4  | Company dashboard with no branch                                                               | Shows "This company has no branch yet" with an Add branch button; all figures are zero except Customers (1, the seeded `Cash`); no failed request |       |
+| ⬜     | B0.5  | Click Add branch                                                                               | Goes to `/pos/branches`; the list is empty                                                                                                        |       |
+| ⬜     | B0.6  | Open Customers, Reports › Sales, Reports › Product and Users                                   | Each renders without an error; Customers lists `Cash`, Users lists the Owner                                                                      |       |
+| ⬜     | B0.7  | Use the Owner's admin-host token against the website host API (for example `GET /api/product`) | 403 with the same "Create a branch…" message; nothing is saved without a branch                                                                   |       |
+| ⬜     | B0.8  | Create the first branch, named `Main`                                                          | Saved and listed                                                                                                                                  |       |
+| ⬜     | B0.9  | Main hostname                                                                                  | `main.{tenant}.{domain}` mapping created automatically; its login page loads                                                                      |       |
+| ⬜     | B0.10 | Creator assignment                                                                             | Owner is assigned to Main                                                                                                                         |       |
+| ⬜     | B0.11 | Main defaults                                                                                  | Cash payment method, payment/sales statuses, currency, NPR notes, inventory setting present                                                       |       |
+| ⬜     | B0.12 | Main feature flags                                                                             | No new `features` rows are added for Main: the tenant's original rows (no `branch_id`) apply to it                                                |       |
+| ⬜     | B0.13 | Company dashboard again                                                                        | The "no branch yet" notice is gone; Main is in the branch filter                                                                                  |       |
+| ⬜     | B0.14 | Owner logs in at the website host                                                              | Now succeeds and works in Main (the oldest branch)                                                                                                |       |
+| ⬜     | B0.15 | Delete Main while it is the only branch                                                        | Rejected: "The only branch of a company cannot be deleted."                                                                                       |       |
 
 ### B1. Access and navigation
 
@@ -112,15 +140,16 @@ On the company admin host, signed in as the Owner.
 
 ### B2. Branch management
 
-| Status | ID   | Check                                       | Expected                                                          | Notes |
-| ------ | ---- | ------------------------------------------- | ----------------------------------------------------------------- | ----- |
-| ⬜     | B2.1 | Create Branch B                             | Saved and listed                                                  |       |
-| ⬜     | B2.2 | Branch B hostname                           | `{branch-b-slug}.{tenant}.{domain}` mapping created automatically |       |
-| ⬜     | B2.3 | Creator assignment                          | Owner is assigned to Branch B                                     |       |
-| ⬜     | B2.4 | Branch B defaults                           | Own Cash method, statuses, currency, NPR notes, inventory setting |       |
-| ⬜     | B2.5 | Edit Branch B (phone, VAT/PAN, tax %)       | Changes saved and shown                                           |       |
-| ⬜     | B2.6 | Create a throwaway Branch C, then delete it | Removed from the list; its host no longer logs in                 |       |
-| ⬜     | B2.7 | Branch B host opens                         | Login page loads on the Branch B hostname                         |       |
+| Status | ID   | Check                                       | Expected                                                                                                                                 | Notes |
+| ------ | ---- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| ⬜     | B2.1 | Create Branch B                             | Saved and listed                                                                                                                         |       |
+| ⬜     | B2.2 | Branch B hostname                           | `{branch-b-slug}.{tenant}.{domain}` mapping created automatically                                                                        |       |
+| ⬜     | B2.3 | Creator assignment                          | Owner is assigned to Branch B                                                                                                            |       |
+| ⬜     | B2.4 | Branch B defaults                           | Own Cash method, statuses, currency, NPR notes, inventory setting                                                                        |       |
+| ⬜     | B2.5 | Edit Branch B (phone, VAT/PAN, tax %)       | Changes saved and shown                                                                                                                  |       |
+| ⬜     | B2.6 | Create a throwaway Branch C, then delete it | Removed from the list; its host no longer logs in                                                                                        |       |
+| ⬜     | B2.7 | Branch B host opens                         | Login page loads on the Branch B hostname                                                                                                |       |
+| ⬜     | B2.8 | Feature flags of later branches             | Branch B has its own `website_enabled` and `maintenance_mode` rows in central `features`, both off; the deleted Branch C's rows are gone |       |
 
 ### B3. Users and branch assignment
 
@@ -370,9 +399,12 @@ Back on the company admin host as the Owner, after sections C–G.
 | ⬜     | H11 | Users                                                | Users from all branches listed with their assignments   |       |
 | ⬜     | H12 | New users and roles created on Branch B              | Visible here without a manual refresh of data           |       |
 
-## I. Website storefront (only if the website feature is enabled)
+## I. Website
 
-On the website host. Mark the whole section ⏭️ if `website_enabled` is off.
+### Storefront
+
+On the website host, after `website_enabled` has been switched on for Main
+(I8). Mark I1–I5 ⏭️ only if the website cannot be switched on in this environment.
 
 | Status | ID  | Check                                        | Expected                                                                 | Notes |
 | ------ | --- | -------------------------------------------- | ------------------------------------------------------------------------ | ----- |
@@ -381,6 +413,30 @@ On the website host. Mark the whole section ⏭️ if `website_enabled` is off.
 | ⬜     | I3  | Customer registers and checks out            | Order created as type `website`; stock reserved in the fulfilling branch |       |
 | ⬜     | I4  | Staff accepts the order under Website Orders | Reservation consumed; that branch's stock decreases                      |       |
 | ⬜     | I5  | Website customer in the POS customer list    | Same shared customer record                                              |       |
+
+### Website lock per branch
+
+Feature flags live in the central `features` table with a `branch_id`, so the
+website can be opened or locked for one branch at a time. They are switched on
+the server with `php artisan features:set {tenant} {key} {on|off} [--branch=CODE]`.
+The website host follows the oldest branch (Main). Run I6–I8 before the
+storefront checks above and the rest after them. Always run this subsection.
+
+| Status | ID  | Check                                                                      | Expected                                                                                                                                                             | Notes |
+| ------ | --- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| ⬜     | I6  | Storefront on the website, Main and Branch B hosts while every flag is off | Each shows the website-disabled page                                                                                                                                 |       |
+| ⬜     | I7  | Storefront API on each of those hosts while off                            | Catalog and customer register/login return 403 (cart and customer orders: 401 with nobody signed in); `GET /api/website/get-features` returns 200 with the flags off |       |
+| ⬜     | I8  | `features:set {tenant} website_enabled on` with no `--branch`              | Reports the flag on for Main (the first branch); the storefront opens on the website host and the Main host                                                          |       |
+| ⬜     | I9  | Branch B host while only Main is on                                        | Still disabled: page shows the disabled message and the storefront API returns 403                                                                                   |       |
+| ⬜     | I10 | `features:set {tenant} website_enabled on --branch={Branch B code}`        | Branch B's storefront opens and lists Branch B's products only                                                                                                       |       |
+| ⬜     | I11 | `features:set {tenant} website_enabled off --branch=MAIN`                  | The website host and Main host are locked again; Branch B's storefront stays open                                                                                    |       |
+| ⬜     | I12 | `get-features` on the Main host and on the Branch B host                   | Each reports its own branch's flags (Main off, Branch B on)                                                                                                          |       |
+| ⬜     | I13 | A signed-in website customer on Branch B, then lock Branch B               | Their cart and order requests return 403; the page falls back to the disabled message                                                                                |       |
+| ⬜     | I14 | Staff POS on a branch host whose website is locked                         | Login, sales and the rest of the POS keep working; only the storefront is locked                                                                                     |       |
+| ⬜     | I15 | Company admin host while Main's website is locked                          | The root address goes to the admin app (or its login); login and the admin API work                                                                                  |       |
+| ⬜     | I16 | `features:set {tenant} maintenance_mode on --branch={Branch B code}`       | `get-features` reports it on for Branch B and off for Main; switch it off again afterwards                                                                           |       |
+| ⬜     | I17 | Create a new branch while Main's website is on                             | The new branch gets its own rows, both off; its storefront is disabled until switched on                                                                             |       |
+| ⬜     | I18 | `features:set` with an unknown branch code, and with an unknown key        | "Branch not found for this tenant." and the usage message; no row is changed                                                                                         |       |
 
 ## J. Cleanup
 

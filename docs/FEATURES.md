@@ -220,9 +220,12 @@ Orders from both channels land in the same `orders` table, distinguished by
   destination branch's separate product by SKU. Dashboard stock totals and stock
   transaction totals display whole units. The company admin hostname can
   view consolidated or selected-branch reporting.
-  New tenant provisioning creates `Main`, an admin hostname, and a super-admin
-  tenant user; branches created from the company admin portal automatically get
-  their own hostname mapping and creator assignment. Company admins can manage
+  New tenant provisioning creates an admin hostname and a super-admin tenant
+  user, but no branch. The administrator signs in on the admin hostname, where
+  the dashboard prompts for a first branch, and adds branches there; each one
+  automatically gets its default settings, its own hostname mapping and creator
+  assignment. Until the first branch exists, staff cannot sign in on the company
+  website hostname and its storefront stays disabled. Company admins can manage
   staff users with one or more branch assignments from the admin host. Branch
   staff manage their own catalog; administrators see all customers and reports
   across all branches. Existing catalog rows migrate to the oldest branch;
@@ -359,8 +362,11 @@ Orders from both channels land in the same `orders` table, distinguished by
   on the server, including reports, imports, exports, catalog edits, and user
   management. A cashier can search products for POS sales without catalog edit
   rights. Company summary and branch creation require the admin hostname.
-  Signing in on the admin hostname is refused for anyone without the `admin` or
-  `super-admin` role. Staff who can create or edit users (such as managers) can
+  Signing in on the admin hostname is refused for anyone without the
+  `super-admin` role (the company administrator). A user with the `admin` role
+  is a branch administrator: full access on the branches assigned to them, no
+  access to the company admin portal, and no ability to grant `super-admin` or
+  change a company administrator. Staff who can create or edit users (such as managers) can
   list the roles they are allowed to assign, without role-management access.
   Branch-host user management is limited to that branch; roles apply across all
   branches assigned to the user. Queued exports retain the requesting branch.
@@ -421,9 +427,15 @@ Orders from both channels land in the same `orders` table, distinguished by
   that has products, sales or any other records, or the company's only branch,
   is refused with an explanation. Branch portals show the Branches list read-only.
 - **Feature flags** — `features` table (central), `website_enabled`, `maintenance_mode`.
-  While `website_enabled` is off the public storefront API (`/api/website/*`,
-  cart, customer auth and orders) answers 403; only `get-features` stays open so
-  the storefront can show its disabled page.
+  Flags are per branch: each row carries a `branch_id`, so one branch can have its
+  storefront on while another has it off. A tenant's original rows (no branch)
+  apply to its first branch only; a branch created later gets its own rows, off
+  by default, and loses them when deleted. `php artisan features:set <tenant>
+  <key> <on|off> [--branch=CODE]` switches one. While `website_enabled` is off
+  for a branch, the storefront API on that branch's hostname (`/api/website/*`,
+  cart, customer auth and orders) answers 403; `get-features` stays open and
+  reports the flags for the hostname's branch. The company admin portal is not
+  subject to the flag: its root address goes to the admin app (or its login).
 
 ---
 

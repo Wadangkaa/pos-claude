@@ -21,6 +21,11 @@
                          └──────────────────────────────────┘
 ```
 
+The tenant database prefix comes from `TENANT_DB_PREFIX` (default `ant_pos_`). A
+deployment that shares a MySQL server with another one should use its own prefix,
+central database name (`DB_DATABASE`) and MySQL user. A tenant keeps the database
+name it was created with, so changing the prefix only affects new tenants.
+
 - Tenant identified by subdomain; each tenant has an isolated MySQL database.
 - One SPA serves two UIs: POS admin (staff, Sanctum user tokens) and the public
   website (customers, Sanctum `auth:customer` guard). The website owns `/` and
@@ -59,6 +64,10 @@ dev: pint, larastan, phpunit 11, laravel/boost.
 | `routes/website/order.php` | `/api/orders`, `auth:customer` | Customer order history |
 | `routes/resource.php` | — | Defines the `Route::apiRoutes()` resource macro used by api.php |
 | `routes/web.php` | web | Signed download of failed import rows |
+
+`GET /api/order/{id}` includes the order branch's `invoice_message` (from its
+`pos_config` setting) so the receipt page works for staff who cannot read
+settings, such as cashiers.
 
 `routes/api.php` also exposes `PUT /api/order/{id}/fulfillment-branch`. It is
 available only to `admin`/`super-admin` users on an admin hostname and moves a
@@ -111,15 +120,18 @@ POS lookup permission; catalog writes require their own action permission.
 `role/all` is also readable by staff who can create or edit users, limited to the
 roles they may assign. `EnsureWebsiteEnabled` guards the storefront route files
 (`routes/website/*`, except `get-features`) and answers 403 while the tenant's
-`website_enabled` feature is off. Staff login on the admin hostname requires the
-`admin` or `super-admin` role.
+`website_enabled` feature is off. Staff login and every staff API call on the admin hostname
+require the `super-admin` role (`User::isCompanyAdmin()`); `admin` is a branch
+administrator, limited to the hostnames of its assigned branches. Only a company
+administrator can assign `super-admin` or edit or delete a user holding it, and
+`role/all` hides that role from everyone else.
 Dashboard view permission also allows its specific summary/count requests and
 brand lookup. Sales/payment viewers can read settings lists filtered to exactly
 `payment`, `payment-status`, or `sales-status`; unrestricted settings reads and
 configuration writes retain their own permissions. These dependencies let
 cashiers use the dashboard and sales form without granting management access.
 Company summary and branch mutations require the admin hostname, and the
-summary also requires an administrator role. Role editors cannot grant a
+summary also requires the `super-admin` role. Role editors cannot grant a
 permission they lack; user editors cannot assign administrator roles or roles
 with permissions they lack. Branch-host user management sees only users assigned
 to that branch. Deleting a user assigned to multiple branches requires the
@@ -128,10 +140,14 @@ Queued catalog and report exports carry the hostname's branch context into the
 worker, and a branch-host report export ignores a supplied foreign `branch_id`.
 
 `TenantController::store()` creates both the website and `admin.` hostname
-records in the central `tenant_branch_domains` table. The tenant seeder creates
-the `Main` branch, gives the tenant-email user `super-admin`, and assigns that
-user to Main. `Branch::afterStore()` derives and stores a branch hostname from
-the website hostname and branch name.
+records in the central `tenant_branch_domains` table. The tenant seeder gives
+the tenant-email user `super-admin` and creates no branch: the company admin adds
+the first one from the admin portal. `Branch::afterStore()` seeds the branch's
+default settings, assigns the creating user, and derives and stores a branch
+hostname from the website hostname and branch name. Until a branch exists,
+`BranchContext::awaitsFirstBranch()` makes staff login and the staff API answer
+403 on the company website hostname, which otherwise works in the oldest branch;
+the admin portal is unaffected and `company-admin/summary` reports `branch_count`.
 
 `DELETE /api/central/tenants/{tenantId}` requires `confirmation` equal to the
 tenant's domain. It deletes the central tenant record (cascading its domains,

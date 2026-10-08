@@ -93,5 +93,5 @@ npm run deploy:<tenant>           # build + scp dist/ to a tenant subdomain
 - Frontend is a TS/JSX mix; UI is MUI + some Mantine + Tailwind; state is Redux
   Toolkit (+redux-persist) for auth/order form, TanStack Query for server data.
 - Feature flags via `features` table + `FeatureKey` enum (`website_enabled`,
-  `maintenance_mode`); the storefront checks it through `WebsiteEnabledMiddleware`
+  `maintenance_mode`), stored per branch (`FeatureService`); the storefront checks it through `WebsiteEnabledMiddleware`
   (frontend) and the API enforces it with `EnsureWebsiteEnabled` (backend).
