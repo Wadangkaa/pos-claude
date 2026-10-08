@@ -122,7 +122,7 @@ Run this first. B0.1–B0.7 are done while the tenant still has no branch.
 | ⬜     | B0.11 | Main defaults                                                                                  | Cash payment method, payment/sales statuses, currency, NPR notes, inventory setting present                                                       |       |
 | ⬜     | B0.12 | Main feature flags                                                                             | No new `features` rows are added for Main: the tenant's original rows (no `branch_id`) apply to it                                                |       |
 | ⬜     | B0.13 | Company dashboard again                                                                        | The "no branch yet" notice is gone; Main is in the branch filter                                                                                  |       |
-| ⬜     | B0.14 | Owner logs in at the website host                                                              | Now succeeds and works in Main (the oldest branch)                                                                                                |       |
+| ⬜     | B0.14 | Open the website host's login page and its storefront root | Both forward to the same page on the Main host (`main-{tenant}.{domain}`); the Owner signs in there |       |
 | ⬜     | B0.15 | Delete Main while it is the only branch                                                        | Rejected: "The only branch of a company cannot be deleted."                                                                                       |       |
 
 ### B1. Access and navigation
@@ -422,7 +422,8 @@ On the website host, after `website_enabled` has been switched on for Main
 Feature flags live in the central `features` table with a `branch_id`, so the
 website can be opened or locked for one branch at a time. They are switched on
 the server with `php artisan features:set {tenant} {key} {on|off} [--branch=CODE]`.
-The website host follows the oldest branch (Main). Run I6–I8 before the
+The website host has no storefront of its own: it forwards to the oldest
+branch (Main), so on it you see Main's storefront or Main's disabled page. Run I6–I8 before the
 storefront checks above and the rest after them. Always run this subsection.
 
 | Status | ID  | Check                                                                      | Expected                                                                                                                                                             | Notes |

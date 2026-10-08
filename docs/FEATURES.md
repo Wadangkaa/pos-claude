@@ -393,7 +393,10 @@ Orders from both channels land in the same `orders` table, distinguished by
   Each company gets `{company}.{domain}` for its website, `admin-{company}.{domain}`
   for the admin portal and `{branch}-{company}.{domain}` per branch, all covered by
   one wildcard certificate; a company or branch name that would clash with an
-  existing web address is refused.
+  existing web address is refused. Every branch has its own website on its branch
+  address; the company address has no website or POS of its own and forwards
+  visitors and staff to the first branch's address (same page), so older links
+  keep working.
 - **Authentication** — staff login/profile/logout/change-password (Sanctum tokens).
 - **Activity logs** — Spatie activity log on key models (orders, products, stock
   adjustments), system-logs UI. A branch portal lists only activity on its own

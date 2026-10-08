@@ -149,7 +149,15 @@ form (`admin.{domain}`); the frontend's `isAdminPortal()` accepts both. Company
 names whose slug is `admin`, starts with `admin-`, or matches an existing portal
 hostname are refused, and so is a new branch whose hostname is already taken.
 `php artisan branches:flatten-domains [tenant] [--dry-run]` renames dotted
-hostnames saved before this scheme. The tenant seeder gives
+hostnames saved before this scheme.
+Each branch has its own website and POS on its branch hostname; the company
+hostname (`kstore.{domain}`) has none of its own. Public `GET /api/portal`
+(`PortalController`) reports the hostname's portal type and, for a company
+hostname whose company has a branch, the first branch's hostname as
+`redirect_host`. The frontend calls it before rendering (`utilities/portalRedirect.ts`,
+from `main.tsx`) and forwards the browser there, keeping the path and query, so
+old links, bookmarks and emailed links still work. The API itself still answers
+on the company hostname as the oldest branch. The tenant seeder gives
 the tenant-email user `super-admin` and creates no branch: the company admin adds
 the first one from the admin portal. `Branch::afterStore()` seeds the branch's
 default settings, assigns the creating user, and derives and stores a branch
@@ -236,7 +244,7 @@ type = LocationTypeEnum), DeliveryFee (per-city fee, `location_id` FK).
   company admin host, catalog writes require `branch_id` when more than one
   branch exists. Product SKU uniqueness is `(branch_id, sku)`; the internal
   product code remains tenant-wide. The public website on a branch hostname
-  uses that branch, and the company website defaults to the oldest branch.
+  uses that branch; the company hostname forwards to the oldest branch's hostname.
   Customers have no branch scope, while their carts do.
 - `BelongsToOrderBranch` scopes `Payment` and `OrderItems` reads, updates, and
   deletes through their parent order on a branch hostname. Their request rules
@@ -510,8 +518,8 @@ staff route is under `/pos`.
 `map_embed_url`. Staff save these through the existing authenticated
 `POST /api/settings/website-details` endpoint and `SaveWebsiteDetailsRequest`.
 Website, email, and POS config reads/upserts use `(branch_id, key)`. Branch
-hostnames always force their own branch; the company website uses Main (oldest
-branch). Company administrators can select a branch in Website/POS Configuration
+hostnames always force their own branch; the company hostname forwards browsers to the
+oldest branch's hostname (its API still answers as that branch). Company administrators can select a branch in Website/POS Configuration
 and pass `branch_id`; ordinary branch users cannot override their hostname.
 Updates merge only supplied validated fields into the existing tenant
 `settings.value_json` for `website_details`, preserving uploaded branding and
