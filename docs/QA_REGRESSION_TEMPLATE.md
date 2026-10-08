@@ -53,9 +53,9 @@ permission check, not a failed navigation check.
 | Frontend branch @ commit |                                     |
 | Test tenant name / slug  |                                     |
 | Website host             | `{tenant}.{domain}`                 |
-| Company admin host       | `admin.{tenant}.{domain}`           |
-| Branch A host (Main)     | `main.{tenant}.{domain}` (from B0)  |
-| Branch B host            | `{branch-b-slug}.{tenant}.{domain}` |
+| Company admin host       | `admin-{tenant}.{domain}`           |
+| Branch A host (Main)     | `main-{tenant}.{domain}` (from B0)  |
+| Branch B host            | `{branch-b-slug}-{tenant}.{domain}` |
 
 Locally `{domain}` is `localhost`, the frontend is on port 3000 and the central
 API is `api.localhost:8000`. A new tenant's first user is the tenant email with
@@ -91,7 +91,7 @@ Central API, authenticated as a central user.
 | ⬜     | A2  | `POST /tenants` with name, email, phone                                         | "Tenant created successfully"; slug derived from the name                                                     |       |
 | ⬜     | A3  | `POST /tenants` again with the same email                                       | Rejected with a validation error                                                                              |       |
 | ⬜     | A4  | Tenant database                                                                 | `ant_pos_{uuid}` exists and is migrated                                                                       |       |
-| ⬜     | A5  | Domain mappings                                                                 | Website host and `admin.` host exist; there is no branch host yet                                             |       |
+| ⬜     | A5  | Domain mappings                                                                 | Website host and `admin-` host exist; there is no branch host yet                                             |       |
 | ⬜     | A6  | No seeded branch                                                                | The tenant has no branch and no settings rows                                                                 |       |
 | ⬜     | A7  | Seeded owner                                                                    | User with the tenant email, role `super-admin`, assigned to no branch                                         |       |
 | ⬜     | A8  | Seeded roles                                                                    | `super-admin`, `admin`, `manager`, `cashier` exist                                                            |       |
@@ -117,7 +117,7 @@ Run this first. B0.1–B0.7 are done while the tenant still has no branch.
 | ⬜     | B0.6  | Open Customers, Reports › Sales, Reports › Product and Users                                   | Each renders without an error; Customers lists `Cash`, Users lists the Owner                                                                      |       |
 | ⬜     | B0.7  | Use the Owner's admin-host token against the website host API (for example `GET /api/product`) | 403 with the same "Create a branch…" message; nothing is saved without a branch                                                                   |       |
 | ⬜     | B0.8  | Create the first branch, named `Main`                                                          | Saved and listed                                                                                                                                  |       |
-| ⬜     | B0.9  | Main hostname                                                                                  | `main.{tenant}.{domain}` mapping created automatically; its login page loads                                                                      |       |
+| ⬜     | B0.9  | Main hostname                                                                                  | `main-{tenant}.{domain}` mapping created automatically; its login page loads without a certificate warning                                                                      |       |
 | ⬜     | B0.10 | Creator assignment                                                                             | Owner is assigned to Main                                                                                                                         |       |
 | ⬜     | B0.11 | Main defaults                                                                                  | Cash payment method, payment/sales statuses, currency, NPR notes, inventory setting present                                                       |       |
 | ⬜     | B0.12 | Main feature flags                                                                             | No new `features` rows are added for Main: the tenant's original rows (no `branch_id`) apply to it                                                |       |
@@ -143,7 +143,7 @@ Run this first. B0.1–B0.7 are done while the tenant still has no branch.
 | Status | ID   | Check                                       | Expected                                                                                                                                 | Notes |
 | ------ | ---- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | ⬜     | B2.1 | Create Branch B                             | Saved and listed                                                                                                                         |       |
-| ⬜     | B2.2 | Branch B hostname                           | `{branch-b-slug}.{tenant}.{domain}` mapping created automatically                                                                        |       |
+| ⬜     | B2.2 | Branch B hostname                           | `{branch-b-slug}-{tenant}.{domain}` mapping created automatically                                                                        |       |
 | ⬜     | B2.3 | Creator assignment                          | Owner is assigned to Branch B                                                                                                            |       |
 | ⬜     | B2.4 | Branch B defaults                           | Own Cash method, statuses, currency, NPR notes, inventory setting                                                                        |       |
 | ⬜     | B2.5 | Edit Branch B (phone, VAT/PAN, tax %)       | Changes saved and shown                                                                                                                  |       |

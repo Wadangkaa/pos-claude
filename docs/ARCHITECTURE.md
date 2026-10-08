@@ -139,8 +139,17 @@ company admin portal. Roles remain tenant-wide across a user's assigned branches
 Queued catalog and report exports carry the hostname's branch context into the
 worker, and a branch-host report export ignores a supplied foreign `branch_id`.
 
-`TenantController::store()` creates both the website and `admin.` hostname
-records in the central `tenant_branch_domains` table. The tenant seeder gives
+`TenantController::store()` creates both the website and admin hostname
+records in the central `tenant_branch_domains` table. Portal hostnames come from
+`TenantBranchDomain::portalHost()` and stay one label deep under the application
+domain so its wildcard certificate covers them: `kstore.{domain}` (website),
+`admin-kstore.{domain}` (admin) and `{branch-slug}-kstore.{domain}` (branch). A
+company on the application domain itself, or on its own domain, keeps the dotted
+form (`admin.{domain}`); the frontend's `isAdminPortal()` accepts both. Company
+names whose slug is `admin`, starts with `admin-`, or matches an existing portal
+hostname are refused, and so is a new branch whose hostname is already taken.
+`php artisan branches:flatten-domains [tenant] [--dry-run]` renames dotted
+hostnames saved before this scheme. The tenant seeder gives
 the tenant-email user `super-admin` and creates no branch: the company admin adds
 the first one from the admin portal. `Branch::afterStore()` seeds the branch's
 default settings, assigns the creating user, and derives and stores a branch
@@ -593,7 +602,7 @@ to create a workbook limited to website-channel orders.
   controls. The POS Sales view filters to `type = pos`.
 - **Branch host isolation:** a `tenant_branch_domains` record maps the full browser
   hostname to the tenant, portal, and optional forced branch. A forced branch wins
-  over a request `branch_id`; company administrators use the `admin.` host for
+  over a request `branch_id`; company administrators use the admin host for
   consolidated and selected-branch dashboards/reports. The public website on
   each branch hostname lists only that branch's catalog.
 

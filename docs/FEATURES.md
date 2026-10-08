@@ -301,7 +301,7 @@ Orders from both channels land in the same `orders` table, distinguished by
   shown separately and do not reduce Net Sales; because expenses have no brand
   or order-type assignment, their figures remain across all brands and channels
   when sales are filtered.
-- On an `admin.` company hostname, Sales and Product reports include an
+- On a company admin hostname, Sales and Product reports include an
   all-branches/selected-branch filter. The same branch filter is forwarded to
   queued report exports. A branch staff hostname ignores a supplied `branch_id`
   and always returns only its own data. Low-quantity reports include branch
@@ -390,6 +390,10 @@ Orders from both channels land in the same `orders` table, distinguished by
   locations, and delivery fees now belong to the active branch. Roles define
   company-wide staff permissions. All configuration is independently saved
   and read per branch. Branch creation remains exclusive to the company admin portal.
+  Each company gets `{company}.{domain}` for its website, `admin-{company}.{domain}`
+  for the admin portal and `{branch}-{company}.{domain}` per branch, all covered by
+  one wildcard certificate; a company or branch name that would clash with an
+  existing web address is refused.
 - **Authentication** — staff login/profile/logout/change-password (Sanctum tokens).
 - **Activity logs** — Spatie activity log on key models (orders, products, stock
   adjustments), system-logs UI. A branch portal lists only activity on its own
