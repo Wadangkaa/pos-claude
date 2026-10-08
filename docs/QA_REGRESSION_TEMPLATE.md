@@ -159,10 +159,12 @@ Run this first. B0.1–B0.7 are done while the tenant still has no branch.
 | ⬜     | B3.2 | Create Branch admin, Manager and Cashier for Branch B            | All three saved with the right role and branch       |       |
 | ⬜     | B3.3 | Create Main-only cashier                                         | Saved, assigned to Main only                         |       |
 | ⬜     | B3.4 | Create the Multi-branch user, assigned to both Main and Branch B | Saved; both branches shown on the user               |       |
-| ⬜     | B3.5 | Manager logs in at the admin host                                | Rejected — admin host needs `admin` or `super-admin` |       |
+| ⬜     | B3.5 | Manager logs in at the admin host                                | Rejected — admin host needs `super-admin`            |       |
 | ⬜     | B3.6 | Cashier logs in at the admin host                                | Rejected                                             |       |
 | ⬜     | B3.7 | Main-only cashier logs in at the Branch B host                   | Rejected — no assignment to that branch              |       |
 | ⬜     | B3.8 | Create the Unassigned user with no branch selected               | Saved; shown with "No branch access"                 |       |
+| ⬜     | B3.9 | Branch admin (`admin`, Branch B only) logs in at the admin host  | Rejected with "Company administrator access is required"; stays on the login page, no session |       |
+| ⬜     | B3.10 | Use the Branch admin's Branch B token against the admin host API | 403 "Company administrator access is required"       |       |
 
 ### B4. Branch login access
 
@@ -356,6 +358,7 @@ the Branch B host. Uses the product and stock created in C2.
 | ⬜     | F21 | Give the Multi-branch user two roles and log in on both branch hosts                                          | Same roles and sidebar on Main and on Branch B                                                                             |       |
 | ⬜     | F22 | Manager opens the user form                                                                                   | Roles list offers only roles the manager may assign (no `admin`, `super-admin`); assigning one through the API returns 403 |       |
 | ⬜     | F23 | Try to save a user with no role selected                                                                      | Rejected: "Select at least one role"                                                                                       |       |
+| ⬜     | F24 | Branch admin opens the user form                                                                              | Roles list has no `super-admin`; assigning it, or editing or deleting the Owner, through the API returns 403               |       |
 
 ## G. Branch isolation and shared customers
 
